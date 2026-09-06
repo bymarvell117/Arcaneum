@@ -3,8 +3,8 @@
 -- discrete parts. Crater size scales with damage, so a weak hit barely dents rock
 -- while a very large hit (e.g. the debug damage key) can punch clean through it.
 local MIN_RADIUS = 1
-local MAX_RADIUS = 15
-local RADIUS_PER_DAMAGE = 0.02
+local MAX_RADIUS = 40
+local RADIUS_PER_DAMAGE = 0.05
 
 local TerrainDestructionService = {}
 

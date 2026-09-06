@@ -30,7 +30,7 @@ local castSpellEvent = Net.GetEvent("CastSpell")
 local castFailedEvent = Net.GetEvent("CastFailed")
 local lastCastAt: { [Player]: { [string]: number } } = {}
 
-type BeamSession = { Part: BasePart, StartedAt: number, LastTickAt: number }
+type BeamSession = { Part: BasePart, StartedAt: number, LastTickAt: number, TerrainDamage: number }
 local activeBeams: { [Player]: { [string]: BeamSession } } = {}
 
 local function spawnProjectile(origin: Vector3, direction: Vector3, resolved: SpellBuilder.ResolvedSpell, caster: Player)
@@ -52,6 +52,10 @@ local function spawnProjectile(origin: Vector3, direction: Vector3, resolved: Sp
 	velocity.MaxForce = math.huge
 	velocity.VectorVelocity = direction * resolved.Word.ProjectileSpeed
 	velocity.Parent = part
+
+	print((
+		"[SpellService] spawned projectile at %s size=%s velocity=%s"
+	):format(tostring(part.Position), tostring(part.Size), tostring(velocity.VectorVelocity)))
 
 	local hitConnection: RBXScriptConnection
 	hitConnection = part.Touched:Connect(function(hit)
@@ -103,8 +107,9 @@ local function fireBlast(player: Player, resolved: SpellBuilder.ResolvedSpell, s
 		return
 	end
 
+	local dataBeforeSpend = PlayerDataService:GetData(player)
 	if not PlayerDataService:TrySpendMana(player, resolved.ManaCostPerCast) then
-		castFailedEvent:FireClient(player, "NotEnoughMana")
+		castFailedEvent:FireClient(player, "NotEnoughMana", resolved.ManaCostPerCast, dataBeforeSpend and dataBeforeSpend.Mana or 0)
 		return
 	end
 
@@ -115,6 +120,10 @@ local function fireBlast(player: Player, resolved: SpellBuilder.ResolvedSpell, s
 	playerCooldowns[slot] = now
 
 	PlayerDataService:AddXP(player, "Mage", resolved.ManaCostPerCast * MAGE_XP_PER_MANA_SPENT)
+
+	print((
+		"[SpellService] %s cast %s in slot %s: Amount=%d Origin=%s Direction=%s"
+	):format(player.Name, resolved.TypeId, slot, resolved.Amount, tostring(origin), tostring(baseDirection)))
 
 	for projectileIndex = 1, resolved.Amount do
 		local direction = spreadDirection(baseDirection, projectileIndex, resolved.Amount)
@@ -171,7 +180,7 @@ local function tickBeam(player: Player, resolved: SpellBuilder.ResolvedSpell, sl
 
 		local data = PlayerDataService:GetData(player)
 		if not data or data.Mana <= 0 then
-			castFailedEvent:FireClient(player, "NotEnoughMana")
+			castFailedEvent:FireClient(player, "NotEnoughMana", resolved.ManaCostPerSecond, data and data.Mana or 0)
 			return
 		end
 
@@ -183,13 +192,18 @@ local function tickBeam(player: Player, resolved: SpellBuilder.ResolvedSpell, sl
 		-- the real target) and the client's Mouse.Hit used to aim it — causing the
 		-- beam to visibly bend toward/into itself as each tick re-aims off its own tail.
 		part.CanQuery = false
+		part.Shape = Enum.PartType.Cylinder
 		part.Material = Enum.Material.Neon
 		part.Color = resolved.Word.Color
 		part.Transparency = 0.15
 		part.Parent = workspace
 
-		session = { Part = part, StartedAt = now, LastTickAt = now }
+		session = { Part = part, StartedAt = now, LastTickAt = now, TerrainDamage = 0 }
 		sessions[slot] = session
+
+		print((
+			"[SpellService] %s started channeling %s in slot %s: Duration=%.1f ThicknessStuds=%.2f DamagePerSecond=%.1f Origin=%s Direction=%s"
+		):format(player.Name, resolved.TypeId, slot, resolved.Duration, resolved.ThicknessStuds, resolved.DamagePerSecond, tostring(origin), tostring(direction)))
 	end
 
 	if now - session.StartedAt > resolved.Duration then
@@ -202,7 +216,9 @@ local function tickBeam(player: Player, resolved: SpellBuilder.ResolvedSpell, sl
 	session.LastTickAt = now
 
 	local manaCost = resolved.ManaCostPerSecond * dt
+	local dataBeforeSpend = PlayerDataService:GetData(player)
 	if not PlayerDataService:TrySpendMana(player, manaCost) then
+		castFailedEvent:FireClient(player, "NotEnoughMana", manaCost, dataBeforeSpend and dataBeforeSpend.Mana or 0)
 		destroyBeamSession(player, slot)
 		markCooldown(player, slot)
 		return
@@ -218,15 +234,27 @@ local function tickBeam(player: Player, resolved: SpellBuilder.ResolvedSpell, sl
 	local endPoint = result and result.Position or (origin + direction * BEAM_MAX_RANGE)
 
 	local distance = (endPoint - origin).Magnitude
-	session.Part.Size = Vector3.new(resolved.ThicknessStuds, resolved.ThicknessStuds, distance)
-	session.Part.CFrame = CFrame.new(origin, endPoint) * CFrame.new(0, 0, -distance / 2)
+	-- A cylinder's long axis is local X (not Z like a Block), so after centering the
+	-- part at the midpoint the same way as before, an extra 90-degree spin around Y
+	-- swaps what was pointing along -Z (the lookAt direction) onto the X axis.
+	session.Part.Size = Vector3.new(distance, resolved.ThicknessStuds, resolved.ThicknessStuds)
+	session.Part.CFrame = CFrame.new(origin, endPoint) * CFrame.new(0, 0, -distance / 2) * CFrame.Angles(0, math.rad(90), 0)
+
+	print((
+		"[SpellService] beam tick slot=%s distance=%.1f endPoint=%s hit=%s"
+	):format(slot, distance, tostring(endPoint), result and result.Instance:GetFullName() or "nothing"))
 
 	if result then
 		local hitInstance = result.Instance
 		local damageThisTick = resolved.DamagePerSecond * dt
 
 		if hitInstance == workspace.Terrain then
-			TerrainDestructionService:Carve(result.Position, damageThisTick)
+			-- Carve with the beam's total accumulated terrain damage this session (not
+			-- just this tick's sliver) so holding the beam on the same spot visibly
+			-- grows the crater over time instead of re-carving the same tiny radius
+			-- every 0.1s — the intended way to eventually punch through a mountain.
+			session.TerrainDamage += damageThisTick
+			TerrainDestructionService:Carve(result.Position, session.TerrainDamage)
 		else
 			local humanoid = hitInstance.Parent and hitInstance.Parent:FindFirstChildOfClass("Humanoid")
 			if humanoid then
@@ -264,32 +292,38 @@ local function handleCastSpell(player: Player, payload: unknown)
 	local character = player.Character
 	local rootPart = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if not rootPart then
+		warn(("[SpellService] %s tried to cast %s with no HumanoidRootPart"):format(player.Name, slot))
 		return
 	end
 
 	local playerData = PlayerDataService:GetData(player)
 	if not playerData or not playerData.CharacterClass then
+		warn(("[SpellService] %s tried to cast %s with no CharacterClass assigned"):format(player.Name, slot))
 		return
 	end
 
 	local classDef = CharacterClasses[playerData.CharacterClass]
 	local word = classDef and classDef.Word
 	if not word then
+		warn(("[SpellService] %s's class %s has no Word mapped"):format(player.Name, tostring(playerData.CharacterClass)))
 		return
 	end
 
 	local mageLevel = PlayerDataService:GetMageLevel(player)
 	if not SpellSlots.IsUnlocked(slot, mageLevel) then
+		warn(("[SpellService] %s tried to cast slot %s, locked until a higher mage level"):format(player.Name, slot))
 		return
 	end
 
 	local spellData = playerData.Spells[slot]
 	if not spellData then
+		warn(("[SpellService] %s tried to cast slot %s, which has no saved spell"):format(player.Name, slot))
 		return
 	end
 
 	local resolved = SpellBuilder.Resolve(word, spellData)
 	if not resolved then
+		warn(("[SpellService] %s's spell in slot %s failed to resolve (unknown Word %s)"):format(player.Name, slot, word))
 		return
 	end
 

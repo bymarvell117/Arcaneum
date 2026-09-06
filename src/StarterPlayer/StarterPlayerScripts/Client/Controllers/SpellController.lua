@@ -27,7 +27,7 @@ local HAND_OFFSETS = {
 	BothHands = Vector3.new(0, 0, -2),
 }
 
-local FAIL_MESSAGE_DURATION = 1
+local FAIL_MESSAGE_DURATION = 2.5
 local FAIL_REASON_TEXT = {
 	NotEnoughMana = "Not enough mana!",
 	OnCooldown = "Still on cooldown!",
@@ -159,32 +159,52 @@ local function buildBeamMeter(screenGui: ScreenGui)
 	beamMeterFill = fill
 end
 
+local failMessageBackground: Frame? = nil
+
 local function buildFailMessage(screenGui: ScreenGui)
+	local background = Instance.new("Frame")
+	background.Size = UDim2.fromOffset(420, 44)
+	background.Position = UDim2.new(0.5, -210, 0.35, 0)
+	background.BackgroundColor3 = Color3.fromRGB(60, 15, 15)
+	background.BackgroundTransparency = 1
+	background.BorderSizePixel = 0
+	background.Parent = screenGui
+	failMessageBackground = background
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 8)
+	corner.Parent = background
+
 	local label = Instance.new("TextLabel")
-	label.Size = UDim2.fromOffset(260, 24)
-	label.Position = UDim2.new(0.5, -130, 1, -130)
+	label.Size = UDim2.fromScale(1, 1)
 	label.BackgroundTransparency = 1
 	label.Font = Enum.Font.GothamBold
-	label.TextSize = 16
-	label.TextColor3 = Color3.fromRGB(255, 90, 90)
+	label.TextSize = 22
+	label.TextColor3 = Color3.fromRGB(255, 120, 120)
 	label.TextTransparency = 1
 	label.Text = ""
-	label.Parent = screenGui
+	label.Parent = background
 	failMessageLabel = label
 end
 
-local function showFailMessage(reason: string)
-	if not failMessageLabel then
+-- needed/have are only present for NotEnoughMana (SpellService reads the live values
+-- server-side), so the player sees exactly why a cast that looks free actually wasn't
+-- affordable — a huge Power value especially can make ManaCostPerCast quietly outgrow
+-- max mana, and the old 1-line/1-second toast was too easy to miss for that to register.
+local function showFailMessage(reason: string, needed: number?, have: number?)
+	if not failMessageLabel or not failMessageBackground then
 		return
 	end
-	failMessageLabel.Text = FAIL_REASON_TEXT[reason] or "Can't cast that right now."
+	local text = FAIL_REASON_TEXT[reason] or "Can't cast that right now."
+	if reason == "NotEnoughMana" and needed and have then
+		text = ("Not enough mana! Needs %d, you have %d"):format(math.ceil(needed), math.floor(have))
+	end
+	failMessageLabel.Text = text
 	failMessageLabel.TextTransparency = 0
-	local tween = TweenService:Create(
-		failMessageLabel,
-		TweenInfo.new(FAIL_MESSAGE_DURATION, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
-		{ TextTransparency = 1 }
-	)
-	tween:Play()
+	failMessageBackground.BackgroundTransparency = 0.25
+	local tweenInfo = TweenInfo.new(FAIL_MESSAGE_DURATION, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+	TweenService:Create(failMessageLabel, tweenInfo, { TextTransparency = 1 }):Play()
+	TweenService:Create(failMessageBackground, tweenInfo, { BackgroundTransparency = 1 }):Play()
 end
 
 local function updateBeamMeterFill()
