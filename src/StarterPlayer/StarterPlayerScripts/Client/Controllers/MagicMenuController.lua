@@ -358,7 +358,8 @@ local function renderEditor()
 		end)
 	end
 
-	buildOptionRow(3, "Explosion Size", PERCENT_OPTIONS, function(v)
+	local powerLabel = pendingSpell.TypeId == "BeamAttack" and "Power" or "Explosion Size"
+	buildOptionRow(3, powerLabel, PERCENT_OPTIONS, function(v)
 		return math.floor(v * 100) .. "%"
 	end, pendingSpell.ExplosionSize, false, nil, function(value)
 		pendingSpell.ExplosionSize = value
@@ -452,6 +453,11 @@ local function renderEditor()
 end
 
 render = function()
+	-- Refetched on every render (not just when the menu is toggled open) so that
+	-- leveling up via the admin panel while the menu is already open — e.g. clicking
+	-- straight from SlotList into an Editor without closing/reopening with M — can't
+	-- leave Amount/Ultimate Art/spell-type gates stuck showing a stale locked state.
+	currentMageLevel = getMageLevelFunction:InvokeServer()
 	clearBody()
 	if currentPage == "SlotList" then
 		renderSlotList()
@@ -494,7 +500,6 @@ function MagicMenuController:Start()
 
 		screenGui.Enabled = not screenGui.Enabled
 		if screenGui.Enabled then
-			currentMageLevel = getMageLevelFunction:InvokeServer()
 			currentPage = "SlotList"
 			render()
 		end

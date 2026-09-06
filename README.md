@@ -558,3 +558,21 @@ editor parameters and a live power meter:
 3. Keep holding until either the power meter runs out or your chosen Duration elapses — confirm
    the beam cuts off automatically either way.
 4. Let go early instead — confirm the beam stops immediately and the meter disappears.
+
+### Three bugs fixed after the first round of testing
+
+- **Amount appeared to do nothing**: `currentMageLevel` on the client was only refetched when
+  the Magic menu was toggled open (pressing **M**) — leveling up via the admin panel *while the
+  menu was already open* (e.g. going straight from the slot list into an editor without
+  closing/reopening) left Amount, Ultimate Art, and the spell-type gates all showing a stale
+  locked state. `render()` now refetches the mage level every time it runs, not just on open.
+  Multiple projectiles from `Amount > 1` were also fired only 6° apart — close enough that they
+  could look like a single projectile even when working correctly; widened to 14°.
+- **The beam bent toward/into itself erratically**: the beam's own visual `Part` didn't set
+  `CanQuery = false`, so it was solid enough for raycasts to hit — both the client's `Mouse.Hit`
+  (used to aim it) and the server's own damage raycast could hit the beam's *previous* tick
+  position instead of the real target, creating a feedback loop. Fixed by excluding the beam
+  part from all spatial queries.
+- **No "Power" option showing for Beam Attack**: it was there, just still labeled "Explosion
+  Size" (Blast Attack's terminology) even for a beam, so it didn't read as the power control.
+  Beam Attack's row 3 is now labeled "Power" instead.

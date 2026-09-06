@@ -18,7 +18,7 @@ local MAGE_XP_PER_MANA_SPENT = 0.5
 local COMBAT_XP_PER_HIT = 4
 local PROJECTILE_LIFETIME = 4
 local BASE_PROJECTILE_SIZE = Vector3.new(1, 1, 1)
-local SPREAD_ANGLE_DEGREES = 6
+local SPREAD_ANGLE_DEGREES = 14
 local BEAM_MAX_RANGE = 100
 local BEAM_STALE_TIMEOUT = 0.3
 local BEAM_SWEEP_INTERVAL = 0.5
@@ -168,6 +168,11 @@ local function tickBeam(player: Player, resolved: SpellBuilder.ResolvedSpell, sl
 		local part = Instance.new("Part")
 		part.Anchored = true
 		part.CanCollide = false
+		-- Without this, the beam's own visual is solid enough for raycasts to hit —
+		-- both the server's damage raycast below (hitting last tick's beam instead of
+		-- the real target) and the client's Mouse.Hit used to aim it — causing the
+		-- beam to visibly bend toward/into itself as each tick re-aims off its own tail.
+		part.CanQuery = false
 		part.Material = Enum.Material.Neon
 		part.Color = resolved.Word.Color
 		part.Transparency = 0.15
