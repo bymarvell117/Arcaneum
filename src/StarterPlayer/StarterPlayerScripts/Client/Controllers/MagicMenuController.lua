@@ -105,8 +105,8 @@ backdrop.BackgroundTransparency = 0.4
 backdrop.Parent = screenGui
 
 local panel = Instance.new("Frame")
-panel.Size = UDim2.fromOffset(560, 460)
-panel.Position = UDim2.new(0.5, -280, 0.5, -230)
+panel.Size = UDim2.fromOffset(560, 560)
+panel.Position = UDim2.new(0.5, -280, 0.5, -280)
 panel.BackgroundColor3 = Color3.fromRGB(18, 18, 26)
 panel.Parent = backdrop
 
@@ -411,8 +411,9 @@ local function renderEditor()
 		end)
 	end
 
-	local powerLabel = pendingSpell.TypeId == "BeamAttack" and "Power" or "Explosion Size"
-	buildNumberRow(3, powerLabel, pendingSpell.ExplosionSize * 100, EXPLOSION_MIN_PERCENT, EXPLOSION_MAX_PERCENT, function(value)
+	-- Power (ExplosionSize) drives damage/effectiveness for every spell type — same
+	-- field, same label, regardless of whether it's a Blast Attack or a Beam Attack.
+	buildNumberRow(3, "Power", pendingSpell.ExplosionSize * 100, EXPLOSION_MIN_PERCENT, EXPLOSION_MAX_PERCENT, function(value)
 		pendingSpell.ExplosionSize = value
 	end)
 
@@ -509,6 +510,12 @@ render = function()
 	-- leave Amount/Ultimate Art/spell-type gates stuck showing a stale locked state.
 	currentMageLevel = getMageLevelFunction:InvokeServer()
 	clearBody()
+	-- Reset scroll on every page change — the ScrollingFrame is reused across pages
+	-- (only its children are torn down/rebuilt), so without this, scrolling down the
+	-- long spell-type list and then picking one could carry that same scroll offset
+	-- into the much shorter Editor page, hiding its lower rows (Name, Save) off the
+	-- bottom of the resized canvas.
+	body.CanvasPosition = Vector2.new(0, 0)
 	if currentPage == "SlotList" then
 		renderSlotList()
 	elseif currentPage == "TypePicker" then
