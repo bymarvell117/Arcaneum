@@ -6,6 +6,8 @@ local Debris = game:GetService("Debris")
 
 local Net = require(ReplicatedStorage.Shared.Framework.Net)
 local SpellBuilder = require(ReplicatedStorage.Shared.Spells.SpellBuilder)
+local SpellSlots = require(ReplicatedStorage.Shared.Spells.SpellSlots)
+local CharacterClasses = require(ReplicatedStorage.Shared.Character.CharacterClasses)
 
 local PlayerDataService = require(ServerScriptService.Server.Services.PlayerDataService)
 local DestructionService = require(ServerScriptService.Server.Services.DestructionService)
@@ -17,17 +19,16 @@ local COMBAT_XP_PER_HIT = 4
 local PROJECTILE_LIFETIME = 4
 local BASE_PROJECTILE_SIZE = Vector3.new(1, 1, 1)
 local SPREAD_ANGLE_DEGREES = 6
-local BURST_CAST_DELAY = 0.15
 
 local SpellService = {}
 
 local castSpellEvent = Net.GetEvent("CastSpell")
-local lastCastAt: { [Player]: number } = {}
+local lastCastAt: { [Player]: { [string]: number } } = {}
 
 local function spawnProjectile(origin: Vector3, direction: Vector3, resolved: SpellBuilder.ResolvedSpell, caster: Player)
 	local part = Instance.new("Part")
 	part.Shape = Enum.PartType.Ball
-	part.Size = BASE_PROJECTILE_SIZE * (0.6 + resolved.Intensity * 0.15)
+	part.Size = BASE_PROJECTILE_SIZE * resolved.ProjectileScale
 	part.Color = resolved.Word.Color
 	part.Material = Enum.Material.Neon
 	part.CanCollide = false
@@ -86,11 +87,15 @@ local function spreadDirection(baseDirection: Vector3, index: number, total: num
 	return rotation * baseDirection.Unit
 end
 
-local function handleCastSpell(player: Player, loadoutRaw: unknown)
-	if typeof(loadoutRaw) ~= "table" then
+local function handleCastSpell(player: Player, payload: unknown)
+	if typeof(payload) ~= "table" then
 		return
 	end
-	local loadout = loadoutRaw :: { [string]: any }
+	local command = payload :: { [string]: any }
+	local slot = command.Slot
+	if typeof(slot) ~= "string" or not table.find(SpellSlots.Order, slot) then
+		return
+	end
 
 	local character = player.Character
 	local rootPart = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -99,49 +104,61 @@ local function handleCastSpell(player: Player, loadoutRaw: unknown)
 	end
 
 	local playerData = PlayerDataService:GetData(player)
-	if not playerData or playerData.CharacterClass == "WitchSlayer" then
+	if not playerData or not playerData.CharacterClass then
 		return
 	end
 
-	local resolved = SpellBuilder.Resolve(loadout :: SpellBuilder.SpellLoadout)
-	if not resolved then
+	local classDef = CharacterClasses[playerData.CharacterClass]
+	local word = classDef and classDef.Word
+	if not word then
 		return
 	end
 
 	local mageLevel = PlayerDataService:GetMageLevel(player)
-	if mageLevel < resolved.Word.MinMageLevel then
+	if not SpellSlots.IsUnlocked(slot, mageLevel) then
+		return
+	end
+
+	local spellData = playerData.Spells[slot]
+	if not spellData then
+		return
+	end
+
+	local resolved = SpellBuilder.Resolve(word, spellData)
+	if not resolved then
 		return
 	end
 
 	local now = os.clock()
-	if lastCastAt[player] and now - lastCastAt[player] < resolved.Word.Cooldown then
+	local playerCooldowns = lastCastAt[player]
+	if playerCooldowns and playerCooldowns[slot] and now - playerCooldowns[slot] < resolved.Cooldown then
 		return
 	end
 
-	if not PlayerDataService:TrySpendMana(player, resolved.TotalManaCost) then
+	if not PlayerDataService:TrySpendMana(player, resolved.ManaCostPerCast) then
 		return
 	end
-	lastCastAt[player] = now
 
-	PlayerDataService:AddXP(player, "Mage", resolved.TotalManaCost * MAGE_XP_PER_MANA_SPENT)
+	if not playerCooldowns then
+		playerCooldowns = {}
+		lastCastAt[player] = playerCooldowns
+	end
+	playerCooldowns[slot] = now
+
+	PlayerDataService:AddXP(player, "Mage", resolved.ManaCostPerCast * MAGE_XP_PER_MANA_SPENT)
 
 	local origin = rootPart.Position + Vector3.new(0, 1, 0)
 	local baseDirection = rootPart.CFrame.LookVector
-	if typeof(loadout.TargetPosition) == "Vector3" then
-		local toTarget = (loadout.TargetPosition :: Vector3) - origin
+	if typeof(command.TargetPosition) == "Vector3" then
+		local toTarget = (command.TargetPosition :: Vector3) - origin
 		if toTarget.Magnitude > 0.1 then
 			baseDirection = toTarget.Unit
 		end
 	end
 
-	for castIndex = 1, resolved.Quantity do
-		for projectileIndex = 1, resolved.ProjectileCount do
-			local direction = spreadDirection(baseDirection, projectileIndex, resolved.ProjectileCount)
-			spawnProjectile(origin, direction, resolved, player)
-		end
-		if castIndex < resolved.Quantity then
-			task.wait(BURST_CAST_DELAY)
-		end
+	for projectileIndex = 1, resolved.Amount do
+		local direction = spreadDirection(baseDirection, projectileIndex, resolved.Amount)
+		spawnProjectile(origin, direction, resolved, player)
 	end
 end
 

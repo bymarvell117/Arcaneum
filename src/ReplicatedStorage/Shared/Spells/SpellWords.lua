@@ -38,7 +38,7 @@ local SpellWords: { [string]: SpellWord } = {
 		BaseManaCost = 16,
 		Cooldown = 1.1,
 		ProjectileSpeed = 160,
-		MinMageLevel = 3,
+		MinMageLevel = 1,
 	},
 	Terra = {
 		Id = "Terra",

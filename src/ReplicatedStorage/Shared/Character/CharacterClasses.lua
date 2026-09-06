@@ -5,30 +5,34 @@ export type CharacterClassDefinition = {
 	Name: string,
 	Description: string,
 	IsMage: boolean,
+	Word: string?,
 }
 
--- The Fire/Ice/Storm split is identity/flavor for now — it doesn't yet restrict which
--- spell words a player can cast (that comes with the real spell-customization system
--- next). Witch Slayer is the one distinction actually enforced today: no spellcasting
--- at all (SpellService checks this server-side, not just the client hotbar).
+-- Each mage class is now locked to exactly one SpellWord (Shared/Spells/SpellWords.lua)
+-- for the whole spell-customization system: your magic type determines the element
+-- every spell you build uses. Witch Slayer has no Word (no magic at all — SpellService
+-- rejects casting server-side, not just the client UI).
 local CharacterClasses: { [string]: CharacterClassDefinition } = {
 	FireMage = {
 		Id = "FireMage",
 		Name = "Fire Mage",
 		Description = "Wields Ignis flame magic. Aggressive, high burst damage.",
 		IsMage = true,
+		Word = "Ignis",
 	},
 	IceMage = {
 		Id = "IceMage",
 		Name = "Ice Mage",
 		Description = "Wields Glacies frost magic. Controls and slows enemies.",
 		IsMage = true,
+		Word = "Glacies",
 	},
 	StormMage = {
 		Id = "StormMage",
 		Name = "Storm Mage",
 		Description = "Wields Fulgur lightning magic. Fast, precise strikes.",
 		IsMage = true,
+		Word = "Fulgur",
 	},
 	WitchSlayer = {
 		Id = "WitchSlayer",
@@ -36,6 +40,7 @@ local CharacterClasses: { [string]: CharacterClassDefinition } = {
 		Description = "No magic. Boosted stamina, bonus damage against mages, faster weapon "
 			.. "mastery, and access to special anti-mage weapons.",
 		IsMage = false,
+		Word = nil,
 	},
 }
 

@@ -435,9 +435,80 @@ already known to be connected (confirming a fresh pick, or an admin-panel class 
 1. Join and confirm you spawn frozen with the **Customize Your Character** screen up first —
    try changing the skin/shirt/pants swatches and watch the 3D preview update live.
 2. Click **Next** — the **Choose Your Path** screen appears. Pick a Mage class — you should
-   unfreeze immediately, see your chosen colors applied to your actual character, and still be
-   able to cast spells (1/2/3 + click) exactly as before.
+   unfreeze immediately, see your chosen colors applied to your actual character, and start
+   with one working spell in slot **Q** (see Phase 7 below).
 3. Open the admin panel (**F6**) and click **"Reset Class (re-pick path)"** — you'll freeze
    again and the picker reappears. Pick **Witch Slayer** this time — confirm the spell hotbar
-   and mana bar don't appear, and pressing 1/2/3 + click does nothing (try the debug **P** key
+   and mana bar don't appear, and pressing Q/E/R/F/V does nothing (try the debug **P** key
    too — that still works, since it's a separate damage-dealing tool, not magic).
+
+## Spell customization (Phase 7)
+
+Replaces the old hardcoded "1/2/3 casts Ignis/Glacies/Fulgur at fixed power" hotbar with a
+World of Magic-style build-your-own-spell system, modeled directly on the reference
+screenshots (Magic menu → spell type catalog → spell editor with Amount/Blast Size/Explosion
+Size/Ultimate Art/Casting Style/Name).
+
+**Your magic type now actually matters.** Each mage class is locked to one element for its
+whole spell system (`Shared/Character/CharacterClasses.lua`'s new `Word` field): Fire Mage →
+Ignis, Ice Mage → Glacies, Storm Mage → Fulgur. Previously all three classes could cast all
+three elements — that's gone; your class *is* your magic type now, matching "cannot be changed
+after creating your character" from the reference.
+
+**Spell slots** (`Shared/Spells/SpellSlots.lua`): 5 slots on **Q / E / R / F / V**. Slot Q is
+always available and comes pre-filled with a starter spell the moment you pick a mage class
+(`SpellSlotService:CreateDefaultSpell`) — you're never stuck with nothing to cast. The other 4
+unlock at mage level 10/20/30/40, shown as "Progress further to unlock" in the menu until then.
+
+**The Magic menu** (press **M**, `Client/Controllers/MagicMenuController.lua`): lists your 5
+slots — empty unlocked slots show **CREATE**, filled ones show **EDIT**/**FORGET**. Creating a
+spell first asks you to **choose a spell type**
+(`Shared/Spells/SpellTypes.lua`) from the full 7-type catalog in the reference (Blast Attack,
+Explosion, High Jump, Beam Attack, Hover, Mode, Flight) with their intended level gates
+(1/25/50/75/100/125/150) — but **only Blast Attack actually works right now**. The other 6 are
+shown (so the menu reads as a complete roadmap) but disabled with a "Coming soon" tag: each is
+really a distinct mechanic (an AoE burst, a jump, a channelled beam, a self-buff, a flight
+mode) rather than a variant of the existing projectile system, and building each properly is
+its own future task.
+
+**The spell editor** (parameters, once a type is picked or an existing spell is being edited):
+
+- **Amount** — how many projectiles fire at once. Locked to 1 until mage level 30, then
+  selectable 1-5.
+- **Blast Size** (20%-100%) — mainly the projectile's visual scale.
+- **Explosion Size** (20%-100%) — the "power" slider: scales both damage and mana cost.
+- **Ultimate Art** — locked until mage level 100; when on, doubles damage, mana cost, *and*
+  cooldown ("cast time") together.
+- **Casting Style** — cosmetic for now (no real cast animations yet); cycles between a couple
+  of options and nudges the cast-flash effect to the corresponding side as a small stand-in.
+- **Name** — free text, saved and shown on your hotbar slot and in the menu.
+
+All of this is server-validated in `Server/Services/SpellSlotService.lua` — level gates,
+clamped ranges, and known-type checks are re-checked there regardless of what the client sends,
+the same defense-in-depth pattern used everywhere else (admin panel, appearance colors, etc.).
+
+**Casting**: `Server/Services/SpellService.lua` now resolves whatever custom spell definition
+is saved in the slot you pressed (via the new `SpellBuilder.Resolve(word, spell)`) instead of a
+fixed loadout — mana cost, damage, cooldown, and projectile count all come from your saved
+Amount/Blast Size/Explosion Size/Ultimate Art. Everything downstream (destructible props,
+terrain carving, civilian/law consequences, combat XP) is unchanged, since it only ever cared
+about the final damage number.
+
+Known limitations: only Blast Attack is implemented (see above); Casting Style doesn't drive
+real animations yet (no animation system exists); and like quest progress and plot ownership,
+none of this needs new persistence work since spells save into the same `PlayerData.Spells`
+DataStore field as everything else.
+
+### Trying it out
+
+1. Press **M** to open the Magic menu — you should see your magic type in the header and your
+   starter spell already sitting in slot Q.
+2. Click **EDIT** on it, try changing Blast Size / Explosion Size, and **SAVE** — press **Q** in
+   the world afterward and confirm the projectile looks bigger/smaller and hits harder/softer
+   accordingly.
+3. Use the admin panel (**F6**) to set your Mage Level to 10, open the Magic menu again, and
+   confirm slot **E** is now unlocked — **CREATE** a spell there, choose **Blast Attack** (the
+   only clickable type), customize it, name it, and save.
+4. Try pressing **E** in the world to cast your new spell from that slot.
+5. Set your Mage Level to 30 in the admin panel and reopen the editor on a spell — confirm
+   **Amount** becomes selectable up to 5 instead of being stuck at 1.

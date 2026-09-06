@@ -6,31 +6,70 @@ local Debris = game:GetService("Debris")
 
 local Net = require(ReplicatedStorage.Shared.Framework.Net)
 local SpellWords = require(ReplicatedStorage.Shared.Spells.SpellWords)
+local SpellSlots = require(ReplicatedStorage.Shared.Spells.SpellSlots)
+local CharacterClasses = require(ReplicatedStorage.Shared.Character.CharacterClasses)
+local SpellBuilder = require(ReplicatedStorage.Shared.Spells.SpellBuilder)
 
 local FLASH_TWEEN_TIME = 0.25
-local SLOT_WORDS = { "Ignis", "Glacies", "Fulgur" }
-local DEFAULT_LOADOUT = {
-	Intensity = 2,
-	Quantity = 1,
-	ProjectileCount = 1,
-}
 local SLOT_SIZE = 56
 local SLOT_GAP = 8
+local KEY_TO_SLOT = {
+	[Enum.KeyCode.Q] = "Q",
+	[Enum.KeyCode.E] = "E",
+	[Enum.KeyCode.R] = "R",
+	[Enum.KeyCode.F] = "F",
+	[Enum.KeyCode.V] = "V",
+}
+local HAND_OFFSETS = {
+	LeftHand = Vector3.new(-1, 0, -2),
+	RightHand = Vector3.new(1, 0, -2),
+	BothHands = Vector3.new(0, 0, -2),
+}
 
 local player = Players.LocalPlayer
 local castSpellEvent = Net.GetEvent("CastSpell")
 local characterClassAssignedEvent = Net.GetEvent("CharacterClassAssigned")
 local getCharacterClassFunction = Net.GetFunction("GetCharacterClass")
+local spellsUpdatedEvent = Net.GetEvent("SpellsUpdated")
+local getSpellsFunction = Net.GetFunction("GetSpells")
 
 local SpellController = {}
 
-local selectedSlot = 1
-local slotStrokes: { [number]: UIStroke } = {}
 local isWitchSlayer = false
+local currentWord: string? = nil
+local currentSpells: { [string]: SpellBuilder.CustomSpellData } = {}
+local slotLabels: { [string]: TextLabel } = {}
+local slotFrames: { [string]: Frame } = {}
 
 local function getMouseHitPosition(): Vector3?
 	local mouse = player:GetMouse()
 	return mouse and mouse.Hit and mouse.Hit.Position
+end
+
+local function refreshSlotVisual(slot: string)
+	local frame = slotFrames[slot]
+	local label = slotLabels[slot]
+	if not frame or not label then
+		return
+	end
+
+	local spell = currentSpells[slot]
+	if spell and currentWord then
+		local word = SpellWords[currentWord]
+		frame.BackgroundColor3 = word and word.Color or Color3.fromRGB(80, 80, 90)
+		frame.BackgroundTransparency = 0.35
+		label.Text = spell.Name
+	else
+		frame.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+		frame.BackgroundTransparency = 0.55
+		label.Text = "Empty"
+	end
+end
+
+local function refreshAllSlots()
+	for _, slot in SpellSlots.Order do
+		refreshSlotVisual(slot)
+	end
 end
 
 local function buildHotbar(): ScreenGui
@@ -39,34 +78,26 @@ local function buildHotbar(): ScreenGui
 	screenGui.ResetOnSpawn = false
 	screenGui.Parent = player:WaitForChild("PlayerGui")
 
-	local totalWidth = (#SLOT_WORDS * SLOT_SIZE) + ((#SLOT_WORDS - 1) * SLOT_GAP)
+	local totalWidth = (#SpellSlots.Order * SLOT_SIZE) + ((#SpellSlots.Order - 1) * SLOT_GAP)
 	local container = Instance.new("Frame")
 	container.BackgroundTransparency = 1
 	container.Size = UDim2.fromOffset(totalWidth, SLOT_SIZE)
 	container.Position = UDim2.new(0.5, -totalWidth / 2, 1, -90)
 	container.Parent = screenGui
 
-	for index, wordId in SLOT_WORDS do
-		local word = SpellWords[wordId]
-
-		local slot = Instance.new("Frame")
-		slot.Size = UDim2.fromOffset(SLOT_SIZE, SLOT_SIZE)
-		slot.Position = UDim2.fromOffset((index - 1) * (SLOT_SIZE + SLOT_GAP), 0)
-		slot.BackgroundColor3 = word.Color
-		slot.BackgroundTransparency = 0.35
-		slot.BorderSizePixel = 0
-		slot.Parent = container
+	for index, slot in SpellSlots.Order do
+		local slotFrame = Instance.new("Frame")
+		slotFrame.Size = UDim2.fromOffset(SLOT_SIZE, SLOT_SIZE)
+		slotFrame.Position = UDim2.fromOffset((index - 1) * (SLOT_SIZE + SLOT_GAP), 0)
+		slotFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+		slotFrame.BackgroundTransparency = 0.55
+		slotFrame.BorderSizePixel = 0
+		slotFrame.Parent = container
+		slotFrames[slot] = slotFrame
 
 		local corner = Instance.new("UICorner")
 		corner.CornerRadius = UDim.new(0, 8)
-		corner.Parent = slot
-
-		local stroke = Instance.new("UIStroke")
-		stroke.Thickness = 3
-		stroke.Color = Color3.new(1, 1, 1)
-		stroke.Transparency = 1
-		stroke.Parent = slot
-		slotStrokes[index] = stroke
+		corner.Parent = slotFrame
 
 		local keyLabel = Instance.new("TextLabel")
 		keyLabel.BackgroundTransparency = 1
@@ -75,45 +106,35 @@ local function buildHotbar(): ScreenGui
 		keyLabel.Font = Enum.Font.GothamBold
 		keyLabel.TextSize = 14
 		keyLabel.TextColor3 = Color3.new(1, 1, 1)
-		keyLabel.Text = tostring(index)
-		keyLabel.Parent = slot
+		keyLabel.Text = slot
+		keyLabel.Parent = slotFrame
 
 		local nameLabel = Instance.new("TextLabel")
 		nameLabel.BackgroundTransparency = 1
-		nameLabel.Size = UDim2.new(1, 0, 0, 16)
-		nameLabel.Position = UDim2.new(0, 0, 1, -18)
+		nameLabel.Size = UDim2.new(1, -4, 0, 28)
+		nameLabel.Position = UDim2.new(0, 2, 1, -30)
 		nameLabel.Font = Enum.Font.Gotham
-		nameLabel.TextSize = 12
+		nameLabel.TextSize = 11
+		nameLabel.TextWrapped = true
 		nameLabel.TextColor3 = Color3.new(1, 1, 1)
-		nameLabel.Text = word.DisplayName
-		nameLabel.Parent = slot
+		nameLabel.Text = "Empty"
+		nameLabel.Parent = slotFrame
+		slotLabels[slot] = nameLabel
 	end
 
 	return screenGui
 end
 
-local function refreshHotbarSelection()
-	for index, stroke in slotStrokes do
-		stroke.Transparency = index == selectedSlot and 0 or 1
-	end
-end
-
-local function selectSlot(index: number)
-	if not SLOT_WORDS[index] then
-		return
-	end
-	selectedSlot = index
-	refreshHotbarSelection()
-end
-
-local function playCastFeedback(wordId: string)
+local function playCastFeedback(spell: SpellBuilder.CustomSpellData)
 	local character = player.Character
 	local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-	if not rootPart then
+	if not rootPart or not currentWord then
 		return
 	end
 
-	local word = SpellWords[wordId]
+	local word = SpellWords[currentWord]
+	local offset = HAND_OFFSETS[spell.CastingStyle] or HAND_OFFSETS.BothHands
+
 	local flash = Instance.new("Part")
 	flash.Shape = Enum.PartType.Ball
 	flash.Size = Vector3.new(0.6, 0.6, 0.6)
@@ -121,7 +142,7 @@ local function playCastFeedback(wordId: string)
 	flash.Material = Enum.Material.Neon
 	flash.CanCollide = false
 	flash.Anchored = true
-	flash.CFrame = (rootPart :: BasePart).CFrame * CFrame.new(0, 0, -2)
+	flash.CFrame = (rootPart :: BasePart).CFrame * CFrame.new(offset)
 	flash.Parent = workspace
 
 	local tween = TweenService:Create(flash, TweenInfo.new(FLASH_TWEEN_TIME), {
@@ -132,55 +153,55 @@ local function playCastFeedback(wordId: string)
 	Debris:AddItem(flash, FLASH_TWEEN_TIME + 0.1)
 end
 
-local function castSelectedSpell()
+local function castSlot(slot: string)
 	if isWitchSlayer then
 		return
 	end
-
-	local wordId = SLOT_WORDS[selectedSlot]
-	if not wordId then
+	local spell = currentSpells[slot]
+	if not spell then
 		return
 	end
 
-	playCastFeedback(wordId)
+	playCastFeedback(spell)
 
 	castSpellEvent:FireServer({
-		WordId = wordId,
-		Intensity = DEFAULT_LOADOUT.Intensity,
-		Quantity = DEFAULT_LOADOUT.Quantity,
-		ProjectileCount = DEFAULT_LOADOUT.ProjectileCount,
+		Slot = slot,
 		TargetPosition = getMouseHitPosition(),
 	})
 end
 
 function SpellController:Start()
 	local hotbarGui = buildHotbar()
-	refreshHotbarSelection()
 
 	characterClassAssignedEvent.OnClientEvent:Connect(function(classId: string?)
 		isWitchSlayer = classId == "WitchSlayer"
+		currentWord = classId and CharacterClasses[classId] and CharacterClasses[classId].Word or nil
 		hotbarGui.Enabled = not isWitchSlayer
+		refreshAllSlots()
 	end)
 
-	-- Pull the current class instead of only relying on the server's push, which
-	-- could fire before this script had connected the listener above.
+	spellsUpdatedEvent.OnClientEvent:Connect(function(spells: { [string]: SpellBuilder.CustomSpellData })
+		currentSpells = spells
+		refreshAllSlots()
+	end)
+
+	-- Pull current state instead of only relying on pushes, which could fire before
+	-- this script finished connecting the listeners above.
 	local currentClass = getCharacterClassFunction:InvokeServer()
 	isWitchSlayer = currentClass == "WitchSlayer"
+	currentWord = currentClass and CharacterClasses[currentClass] and CharacterClasses[currentClass].Word or nil
 	hotbarGui.Enabled = not isWitchSlayer
+
+	currentSpells = getSpellsFunction:InvokeServer() or {}
+	refreshAllSlots()
 
 	UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		if gameProcessed then
 			return
 		end
-
-		if input.KeyCode == Enum.KeyCode.One then
-			selectSlot(1)
-		elseif input.KeyCode == Enum.KeyCode.Two then
-			selectSlot(2)
-		elseif input.KeyCode == Enum.KeyCode.Three then
-			selectSlot(3)
-		elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
-			castSelectedSpell()
+		local slot = KEY_TO_SLOT[input.KeyCode]
+		if slot then
+			castSlot(slot)
 		end
 	end)
 end

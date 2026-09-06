@@ -5,6 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StatFormulas = require(ReplicatedStorage.Shared.Combat.StatFormulas)
 local Net = require(ReplicatedStorage.Shared.Framework.Net)
 local ColorSerialization = require(ReplicatedStorage.Shared.Util.ColorSerialization)
+local SpellBuilder = require(ReplicatedStorage.Shared.Spells.SpellBuilder)
 
 local DATASTORE_NAME = "ArcaneumPlayerData_v1"
 local MANA_REGEN_INTERVAL = 2
@@ -24,6 +25,7 @@ export type PlayerData = {
 	SkinColor: ColorSerialization.SerializedColor,
 	ShirtColor: ColorSerialization.SerializedColor,
 	PantsColor: ColorSerialization.SerializedColor,
+	Spells: { [string]: SpellBuilder.CustomSpellData },
 }
 
 local PlayerDataService = {}
@@ -46,6 +48,7 @@ local function defaultData(): PlayerData
 		SkinColor = ColorSerialization.ToTable(DEFAULT_BODY_COLOR),
 		ShirtColor = ColorSerialization.ToTable(DEFAULT_BODY_COLOR),
 		PantsColor = ColorSerialization.ToTable(DEFAULT_BODY_COLOR),
+		Spells = {},
 	}
 end
 
@@ -241,6 +244,30 @@ function PlayerDataService:GetAppearanceColors(player: Player): (Color3, Color3,
 	return ColorSerialization.FromTable(data.SkinColor),
 		ColorSerialization.FromTable(data.ShirtColor),
 		ColorSerialization.FromTable(data.PantsColor)
+end
+
+function PlayerDataService:GetSpells(player: Player): { [string]: SpellBuilder.CustomSpellData }
+	local data = profiles[player]
+	if not data then
+		return {}
+	end
+	return data.Spells
+end
+
+function PlayerDataService:SetSpell(player: Player, slot: string, spell: SpellBuilder.CustomSpellData)
+	local data = profiles[player]
+	if not data then
+		return
+	end
+	data.Spells[slot] = spell
+end
+
+function PlayerDataService:ClearSpell(player: Player, slot: string)
+	local data = profiles[player]
+	if not data then
+		return
+	end
+	data.Spells[slot] = nil
 end
 
 function PlayerDataService:RefillMana(player: Player)

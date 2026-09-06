@@ -5,6 +5,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Net = require(ReplicatedStorage.Shared.Framework.Net)
 local CharacterClasses = require(ReplicatedStorage.Shared.Character.CharacterClasses)
 local PlayerDataService = require(ServerScriptService.Server.Services.PlayerDataService)
+local SpellSlotService = require(ServerScriptService.Server.Services.SpellSlotService)
 
 local DEFAULT_WALK_SPEED = 16
 local DEFAULT_JUMP_POWER = 50
@@ -43,6 +44,11 @@ local function handleSelectClass(player: Player, classId: unknown)
 
 	PlayerDataService:SetCharacterClass(player, classId)
 	characterClassAssignedEvent:FireClient(player, classId)
+
+	local classDef = CharacterClasses[classId]
+	if classDef.IsMage and classDef.Word then
+		SpellSlotService:CreateDefaultSpell(player, classDef.Word)
+	end
 
 	local character = player.Character
 	if character then
