@@ -146,12 +146,44 @@ function PlayerDataService:AddXP(player: Player, track: "Mage" | "Combat" | "Cha
 	end
 end
 
+function PlayerDataService:SetXP(player: Player, track: "Mage" | "Combat" | "Character", amount: number)
+	local data = profiles[player]
+	if not data then
+		return
+	end
+	if track == "Mage" then
+		data.MageXP = amount
+	elseif track == "Combat" then
+		data.CombatXP = amount
+	else
+		data.CharacterXP = amount
+	end
+end
+
 function PlayerDataService:AddCurrency(player: Player, currency: "Silver" | "Gold", amount: number)
 	local data = profiles[player]
 	if not data then
 		return
 	end
 	data[currency] += amount
+end
+
+function PlayerDataService:SetCurrency(player: Player, currency: "Silver" | "Gold", amount: number)
+	local data = profiles[player]
+	if not data then
+		return
+	end
+	data[currency] = amount
+end
+
+function PlayerDataService:RefillMana(player: Player)
+	local data = profiles[player]
+	if not data then
+		return
+	end
+	local maxMana = StatFormulas.MaxManaForLevel(self:GetMageLevel(player))
+	data.Mana = maxMana
+	manaUpdated:FireClient(player, data.Mana, maxMana)
 end
 
 return PlayerDataService

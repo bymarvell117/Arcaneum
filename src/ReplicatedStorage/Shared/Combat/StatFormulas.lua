@@ -22,4 +22,12 @@ function StatFormulas.LevelFromXP(totalXP: number): number
 	return level
 end
 
+function StatFormulas.XPForLevel(level: number): number
+	local total = 0
+	for l = 1, level - 1 do
+		total += StatFormulas.XPToNextLevel(l)
+	end
+	return total
+end
+
 return StatFormulas

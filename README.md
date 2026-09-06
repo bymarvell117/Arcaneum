@@ -165,3 +165,20 @@ Known simplification to revisit later: spell intensity/quantity/projectile count
 hardcoded on the client for now — the real spell-customization UI comes later, along with
 gating higher intensity behind mage level so low-level players can't already one-shot a wall
 with a real spell (only the debug key can do that today).
+
+## Admin panel (testing tool)
+
+**`Server/Services/AdminService.lua`** + **`Client/Controllers/AdminController.lua`**: a
+panel to set gold, silver, mage/combat/character level, and refill mana instantly, so you
+don't have to grind XP manually to test level-gated content (like the Fulgur/Terra spells,
+which need mage level 3/5).
+
+- **Access**: automatically available to everyone while testing in Studio. On a published
+  server, only Roblox UserIds listed in `Shared/GameConfig.lua`'s `AdminUserIds` get it — add
+  your own UserId there before publishing if you want admin access outside Studio. The server
+  re-checks this on every command; the client UI only ever appears for authorized players, but
+  authorization is never trusted from the client.
+- **Usage**: press **F9** to toggle the panel (top-left). Type a number next to a field and
+  click **Set**. Setting a level directly sets the underlying XP total to match that level's
+  threshold (`StatFormulas.XPForLevel`), so mage level changes also matter for spell level
+  gates immediately.
