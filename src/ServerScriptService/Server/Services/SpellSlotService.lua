@@ -15,6 +15,8 @@ local MIN_AMOUNT = 1
 local MAX_AMOUNT = 5
 local MIN_SIZE_FRACTION = 0.2
 local MAX_SIZE_FRACTION = 1
+local MIN_DURATION = 1
+local MAX_DURATION = 6
 
 local SpellSlotService = {}
 
@@ -68,6 +70,8 @@ function SpellSlotService:CreateDefaultSpell(player: Player, word: string)
 		Amount = 1,
 		BlastSize = 0.5,
 		ExplosionSize = 0.5,
+		Duration = MIN_DURATION,
+		Thickness = 0.5,
 		UltimateArt = false,
 		CastingStyle = CastingStyles[1].Id,
 		Name = word .. " Blast",
@@ -110,6 +114,8 @@ local function handleSaveSpell(player: Player, payload: unknown)
 
 	local blastSize = typeof(command.BlastSize) == "number" and command.BlastSize or 0.5
 	local explosionSize = typeof(command.ExplosionSize) == "number" and command.ExplosionSize or 0.5
+	local duration = typeof(command.Duration) == "number" and command.Duration or MIN_DURATION
+	local thickness = typeof(command.Thickness) == "number" and command.Thickness or 0.5
 
 	local spell = {
 		TypeId = typeId,
@@ -119,6 +125,8 @@ local function handleSaveSpell(player: Player, payload: unknown)
 		UltimateArt = command.UltimateArt == true and mageLevel >= ULTIMATE_ART_UNLOCK_LEVEL,
 		CastingStyle = isValidCastingStyle(command.CastingStyle) and command.CastingStyle or CastingStyles[1].Id,
 		Name = sanitizeName(command.Name, typeDef.Name),
+		Duration = math.clamp(duration, MIN_DURATION, MAX_DURATION),
+		Thickness = math.clamp(thickness, MIN_SIZE_FRACTION, MAX_SIZE_FRACTION),
 	}
 
 	PlayerDataService:SetSpell(player, slot, spell)

@@ -13,6 +13,7 @@ local SpellBuilder = require(ReplicatedStorage.Shared.Spells.SpellBuilder)
 local FLASH_TWEEN_TIME = 0.25
 local SLOT_SIZE = 56
 local SLOT_GAP = 8
+local BEAM_TICK_INTERVAL = 0.1
 local KEY_TO_SLOT = {
 	[Enum.KeyCode.Q] = "Q",
 	[Enum.KeyCode.E] = "E",
@@ -32,6 +33,7 @@ local characterClassAssignedEvent = Net.GetEvent("CharacterClassAssigned")
 local getCharacterClassFunction = Net.GetFunction("GetCharacterClass")
 local spellsUpdatedEvent = Net.GetEvent("SpellsUpdated")
 local getSpellsFunction = Net.GetFunction("GetSpells")
+local manaUpdatedEvent = Net.GetEvent("ManaUpdated")
 
 local SpellController = {}
 
@@ -40,6 +42,11 @@ local currentWord: string? = nil
 local currentSpells: { [string]: SpellBuilder.CustomSpellData } = {}
 local slotLabels: { [string]: TextLabel } = {}
 local slotFrames: { [string]: Frame } = {}
+local heldSlots: { [string]: boolean } = {}
+local currentMana = 0
+local currentMaxMana = 1
+local beamMeterFrame: Frame? = nil
+local beamMeterFill: Frame? = nil
 
 local function getMouseHitPosition(): Vector3?
 	local mouse = player:GetMouse()
@@ -125,6 +132,48 @@ local function buildHotbar(): ScreenGui
 	return screenGui
 end
 
+local function buildBeamMeter(screenGui: ScreenGui)
+	local background = Instance.new("Frame")
+	background.Size = UDim2.fromOffset(220, 14)
+	background.Position = UDim2.new(0.5, -110, 1, -108)
+	background.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+	background.BorderSizePixel = 0
+	background.Visible = false
+	background.Parent = screenGui
+	beamMeterFrame = background
+
+	local fill = Instance.new("Frame")
+	fill.Name = "Fill"
+	fill.Size = UDim2.fromScale(1, 1)
+	fill.BackgroundColor3 = Color3.fromRGB(255, 150, 60)
+	fill.BorderSizePixel = 0
+	fill.Parent = background
+	beamMeterFill = fill
+end
+
+local function updateBeamMeterFill()
+	if not beamMeterFill then
+		return
+	end
+	local ratio = currentMaxMana > 0 and math.clamp(currentMana / currentMaxMana, 0, 1) or 0
+	beamMeterFill.Size = UDim2.fromScale(ratio, 1)
+end
+
+local function isAnySlotHeld(): boolean
+	for _, held in heldSlots do
+		if held then
+			return true
+		end
+	end
+	return false
+end
+
+local function setBeamMeterVisible(visible: boolean)
+	if beamMeterFrame then
+		beamMeterFrame.Visible = visible
+	end
+end
+
 local function playCastFeedback(spell: SpellBuilder.CustomSpellData)
 	local character = player.Character
 	local rootPart = character and character:FindFirstChild("HumanoidRootPart")
@@ -153,7 +202,46 @@ local function playCastFeedback(spell: SpellBuilder.CustomSpellData)
 	Debris:AddItem(flash, FLASH_TWEEN_TIME + 0.1)
 end
 
-local function castSlot(slot: string)
+local function castInstant(slot: string, spell: SpellBuilder.CustomSpellData)
+	playCastFeedback(spell)
+	castSpellEvent:FireServer({
+		Slot = slot,
+		TargetPosition = getMouseHitPosition(),
+	})
+end
+
+-- BeamAttack is a hold-to-channel spell: while the key is held we fire one CastSpell
+-- message per tick (the server advances the beam by however much time passed since
+-- the last one) instead of a single instant cast, and show a live power meter that
+-- mirrors remaining mana so the player can see the beam weaken/die as it drains.
+local function startChannel(slot: string)
+	if heldSlots[slot] then
+		return
+	end
+	heldSlots[slot] = true
+	setBeamMeterVisible(true)
+
+	task.spawn(function()
+		while heldSlots[slot] do
+			castSpellEvent:FireServer({
+				Slot = slot,
+				TargetPosition = getMouseHitPosition(),
+			})
+			task.wait(BEAM_TICK_INTERVAL)
+		end
+	end)
+end
+
+local function stopChannel(slot: string)
+	if not heldSlots[slot] then
+		return
+	end
+	heldSlots[slot] = false
+	castSpellEvent:FireServer({ Slot = slot, Stop = true })
+	setBeamMeterVisible(isAnySlotHeld())
+end
+
+local function handleSlotPressed(slot: string)
 	if isWitchSlayer then
 		return
 	end
@@ -162,16 +250,28 @@ local function castSlot(slot: string)
 		return
 	end
 
-	playCastFeedback(spell)
+	if spell.TypeId == "BeamAttack" then
+		startChannel(slot)
+	else
+		castInstant(slot, spell)
+	end
+end
 
-	castSpellEvent:FireServer({
-		Slot = slot,
-		TargetPosition = getMouseHitPosition(),
-	})
+local function handleSlotReleased(slot: string)
+	if heldSlots[slot] then
+		stopChannel(slot)
+	end
 end
 
 function SpellController:Start()
 	local hotbarGui = buildHotbar()
+	buildBeamMeter(hotbarGui)
+
+	manaUpdatedEvent.OnClientEvent:Connect(function(mana: number, maxMana: number)
+		currentMana = mana
+		currentMaxMana = maxMana
+		updateBeamMeterFill()
+	end)
 
 	characterClassAssignedEvent.OnClientEvent:Connect(function(classId: string?)
 		isWitchSlayer = classId == "WitchSlayer"
@@ -201,7 +301,14 @@ function SpellController:Start()
 		end
 		local slot = KEY_TO_SLOT[input.KeyCode]
 		if slot then
-			castSlot(slot)
+			handleSlotPressed(slot)
+		end
+	end)
+
+	UserInputService.InputEnded:Connect(function(input)
+		local slot = KEY_TO_SLOT[input.KeyCode]
+		if slot then
+			handleSlotReleased(slot)
 		end
 	end)
 end

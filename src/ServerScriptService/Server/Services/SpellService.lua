@@ -19,11 +19,18 @@ local COMBAT_XP_PER_HIT = 4
 local PROJECTILE_LIFETIME = 4
 local BASE_PROJECTILE_SIZE = Vector3.new(1, 1, 1)
 local SPREAD_ANGLE_DEGREES = 6
+local BEAM_MAX_RANGE = 100
+local BEAM_STALE_TIMEOUT = 0.3
+local BEAM_SWEEP_INTERVAL = 0.5
+local BEAM_MAX_TICK_DT = 0.5
 
 local SpellService = {}
 
 local castSpellEvent = Net.GetEvent("CastSpell")
 local lastCastAt: { [Player]: { [string]: number } } = {}
+
+type BeamSession = { Part: BasePart, StartedAt: number, LastTickAt: number }
+local activeBeams: { [Player]: { [string]: BeamSession } } = {}
 
 local function spawnProjectile(origin: Vector3, direction: Vector3, resolved: SpellBuilder.ResolvedSpell, caster: Player)
 	local part = Instance.new("Part")
@@ -87,6 +94,143 @@ local function spreadDirection(baseDirection: Vector3, index: number, total: num
 	return rotation * baseDirection.Unit
 end
 
+local function fireBlast(player: Player, resolved: SpellBuilder.ResolvedSpell, slot: string, origin: Vector3, baseDirection: Vector3)
+	local now = os.clock()
+	local playerCooldowns = lastCastAt[player]
+	if playerCooldowns and playerCooldowns[slot] and now - playerCooldowns[slot] < resolved.Cooldown then
+		return
+	end
+
+	if not PlayerDataService:TrySpendMana(player, resolved.ManaCostPerCast) then
+		return
+	end
+
+	if not playerCooldowns then
+		playerCooldowns = {}
+		lastCastAt[player] = playerCooldowns
+	end
+	playerCooldowns[slot] = now
+
+	PlayerDataService:AddXP(player, "Mage", resolved.ManaCostPerCast * MAGE_XP_PER_MANA_SPENT)
+
+	for projectileIndex = 1, resolved.Amount do
+		local direction = spreadDirection(baseDirection, projectileIndex, resolved.Amount)
+		spawnProjectile(origin, direction, resolved, player)
+	end
+end
+
+-- ===== Beam Attack: a channeled, hit-scan beam. The client sends one CastSpell
+-- message per tick (~10/sec) while its key is held instead of one message per cast,
+-- so each incoming message here just advances an ongoing session by however much
+-- time passed since the last one (dt-based), rather than needing a separate
+-- server-side loop per beam. =====
+
+local function destroyBeamSession(player: Player, slot: string)
+	local sessions = activeBeams[player]
+	if not sessions then
+		return
+	end
+	local session = sessions[slot]
+	if not session then
+		return
+	end
+	session.Part:Destroy()
+	sessions[slot] = nil
+end
+
+-- Cooldown is measured from when the beam ends, not when it started, so a full
+-- Duration-length channel doesn't also make the player wait Cooldown starting from
+-- the very beginning of the channel.
+local function markCooldown(player: Player, slot: string)
+	local playerCooldowns = lastCastAt[player]
+	if not playerCooldowns then
+		playerCooldowns = {}
+		lastCastAt[player] = playerCooldowns
+	end
+	playerCooldowns[slot] = os.clock()
+end
+
+local function tickBeam(player: Player, resolved: SpellBuilder.ResolvedSpell, slot: string, origin: Vector3, direction: Vector3)
+	local sessions = activeBeams[player]
+	if not sessions then
+		sessions = {}
+		activeBeams[player] = sessions
+	end
+
+	local now = os.clock()
+	local session = sessions[slot]
+	if not session then
+		local playerCooldowns = lastCastAt[player]
+		if playerCooldowns and playerCooldowns[slot] and now - playerCooldowns[slot] < resolved.Cooldown then
+			return
+		end
+
+		local part = Instance.new("Part")
+		part.Anchored = true
+		part.CanCollide = false
+		part.Material = Enum.Material.Neon
+		part.Color = resolved.Word.Color
+		part.Transparency = 0.15
+		part.Parent = workspace
+
+		session = { Part = part, StartedAt = now, LastTickAt = now }
+		sessions[slot] = session
+	end
+
+	if now - session.StartedAt > resolved.Duration then
+		destroyBeamSession(player, slot)
+		markCooldown(player, slot)
+		return
+	end
+
+	local dt = math.min(now - session.LastTickAt, BEAM_MAX_TICK_DT)
+	session.LastTickAt = now
+
+	local manaCost = resolved.ManaCostPerSecond * dt
+	if not PlayerDataService:TrySpendMana(player, manaCost) then
+		destroyBeamSession(player, slot)
+		markCooldown(player, slot)
+		return
+	end
+
+	PlayerDataService:AddXP(player, "Mage", manaCost * MAGE_XP_PER_MANA_SPENT)
+
+	local raycastParams = RaycastParams.new()
+	raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+	local character = player.Character
+	raycastParams.FilterDescendantsInstances = character and { character } or {}
+	local result = workspace:Raycast(origin, direction * BEAM_MAX_RANGE, raycastParams)
+	local endPoint = result and result.Position or (origin + direction * BEAM_MAX_RANGE)
+
+	local distance = (endPoint - origin).Magnitude
+	session.Part.Size = Vector3.new(resolved.ThicknessStuds, resolved.ThicknessStuds, distance)
+	session.Part.CFrame = CFrame.new(origin, endPoint) * CFrame.new(0, 0, -distance / 2)
+
+	if result then
+		local hitInstance = result.Instance
+		local damageThisTick = resolved.DamagePerSecond * dt
+
+		if hitInstance == workspace.Terrain then
+			TerrainDestructionService:Carve(result.Position, damageThisTick)
+		else
+			local humanoid = hitInstance.Parent and hitInstance.Parent:FindFirstChildOfClass("Humanoid")
+			if humanoid then
+				hitInstance.Parent:SetAttribute("LastDamagedByUserId", player.UserId)
+				humanoid:TakeDamage(damageThisTick)
+				PlayerDataService:AddXP(player, "Combat", damageThisTick)
+				if CollectionService:HasTag(hitInstance.Parent, "Civilian") then
+					WantedService:ReportCivilianDamage(player, humanoid.Health <= 0)
+				end
+			else
+				local destructionResult = DestructionService:Damage(hitInstance, damageThisTick)
+				if destructionResult and destructionResult.Broke and hitInstance:GetAttribute("OwnerId") ~= player.UserId then
+					WantedService:ReportPropertyDamage(player, destructionResult.StructureDestroyed)
+				end
+			end
+		end
+	end
+end
+
 local function handleCastSpell(player: Player, payload: unknown)
 	if typeof(payload) ~= "table" then
 		return
@@ -94,6 +238,11 @@ local function handleCastSpell(player: Player, payload: unknown)
 	local command = payload :: { [string]: any }
 	local slot = command.Slot
 	if typeof(slot) ~= "string" or not table.find(SpellSlots.Order, slot) then
+		return
+	end
+
+	if command.Stop == true then
+		destroyBeamSession(player, slot)
 		return
 	end
 
@@ -129,24 +278,6 @@ local function handleCastSpell(player: Player, payload: unknown)
 		return
 	end
 
-	local now = os.clock()
-	local playerCooldowns = lastCastAt[player]
-	if playerCooldowns and playerCooldowns[slot] and now - playerCooldowns[slot] < resolved.Cooldown then
-		return
-	end
-
-	if not PlayerDataService:TrySpendMana(player, resolved.ManaCostPerCast) then
-		return
-	end
-
-	if not playerCooldowns then
-		playerCooldowns = {}
-		lastCastAt[player] = playerCooldowns
-	end
-	playerCooldowns[slot] = now
-
-	PlayerDataService:AddXP(player, "Mage", resolved.ManaCostPerCast * MAGE_XP_PER_MANA_SPENT)
-
 	local origin = rootPart.Position + Vector3.new(0, 1, 0)
 	local baseDirection = rootPart.CFrame.LookVector
 	if typeof(command.TargetPosition) == "Vector3" then
@@ -156,9 +287,10 @@ local function handleCastSpell(player: Player, payload: unknown)
 		end
 	end
 
-	for projectileIndex = 1, resolved.Amount do
-		local direction = spreadDirection(baseDirection, projectileIndex, resolved.Amount)
-		spawnProjectile(origin, direction, resolved, player)
+	if resolved.TypeId == "BeamAttack" then
+		tickBeam(player, resolved, slot, origin, baseDirection)
+	else
+		fireBlast(player, resolved, slot, origin, baseDirection)
 	end
 end
 
@@ -167,6 +299,29 @@ function SpellService:Start()
 
 	Players.PlayerRemoving:Connect(function(player)
 		lastCastAt[player] = nil
+		local sessions = activeBeams[player]
+		if sessions then
+			for slot in sessions do
+				destroyBeamSession(player, slot)
+			end
+			activeBeams[player] = nil
+		end
+	end)
+
+	-- Safety net: if a client stops sending ticks without an explicit Stop (e.g. a
+	-- dropped connection) the beam would otherwise persist forever.
+	task.spawn(function()
+		while true do
+			task.wait(BEAM_SWEEP_INTERVAL)
+			local now = os.clock()
+			for player, sessions in activeBeams do
+				for slot, session in sessions do
+					if now - session.LastTickAt > BEAM_STALE_TIMEOUT then
+						destroyBeamSession(player, slot)
+					end
+				end
+			end
+		end
 	end)
 end
 

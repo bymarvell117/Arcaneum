@@ -12,8 +12,11 @@ local CharacterClasses = require(ReplicatedStorage.Shared.Character.CharacterCla
 local TOGGLE_KEY = Enum.KeyCode.M
 local PERCENT_OPTIONS = { 0.2, 0.4, 0.6, 0.8, 1.0 }
 local AMOUNT_OPTIONS = { 1, 2, 3, 4, 5 }
+local DURATION_OPTIONS = { 1, 2, 3, 4, 5, 6 }
 local AMOUNT_UNLOCK_LEVEL = 30
 local ULTIMATE_ART_UNLOCK_LEVEL = 100
+local DEFAULT_DURATION = 2
+local DEFAULT_THICKNESS = 0.5
 
 local player = Players.LocalPlayer
 local characterClassAssignedEvent = Net.GetEvent("CharacterClassAssigned")
@@ -199,6 +202,8 @@ local function renderSlotList()
 						UltimateArt = spell.UltimateArt,
 						CastingStyle = spell.CastingStyle,
 						Name = spell.Name,
+						Duration = spell.Duration or DEFAULT_DURATION,
+						Thickness = spell.Thickness or DEFAULT_THICKNESS,
 					}
 					currentPage = "Editor"
 					render()
@@ -247,6 +252,8 @@ local function renderTypePicker()
 					UltimateArt = false,
 					CastingStyle = CastingStyles[1].Id,
 					Name = definition.Name,
+					Duration = DEFAULT_DURATION,
+					Thickness = DEFAULT_THICKNESS,
 				}
 				currentPage = "Editor"
 				render()
@@ -321,19 +328,35 @@ local function renderEditor()
 	title.Font = Enum.Font.GothamBold
 	title.LayoutOrder = 0
 
-	buildOptionRow(1, "Amount", AMOUNT_OPTIONS, function(v)
-		return tostring(v)
-	end, pendingSpell.Amount, currentMageLevel < AMOUNT_UNLOCK_LEVEL, ("Level %d+"):format(AMOUNT_UNLOCK_LEVEL), function(value)
-		pendingSpell.Amount = value
-		render()
-	end)
+	if pendingSpell.TypeId == "BeamAttack" then
+		buildOptionRow(1, "Duration (sec)", DURATION_OPTIONS, function(v)
+			return tostring(v)
+		end, pendingSpell.Duration, false, nil, function(value)
+			pendingSpell.Duration = value
+			render()
+		end)
 
-	buildOptionRow(2, "Blast Size", PERCENT_OPTIONS, function(v)
-		return math.floor(v * 100) .. "%"
-	end, pendingSpell.BlastSize, false, nil, function(value)
-		pendingSpell.BlastSize = value
-		render()
-	end)
+		buildOptionRow(2, "Thickness", PERCENT_OPTIONS, function(v)
+			return math.floor(v * 100) .. "%"
+		end, pendingSpell.Thickness, false, nil, function(value)
+			pendingSpell.Thickness = value
+			render()
+		end)
+	else
+		buildOptionRow(1, "Amount", AMOUNT_OPTIONS, function(v)
+			return tostring(v)
+		end, pendingSpell.Amount, currentMageLevel < AMOUNT_UNLOCK_LEVEL, ("Level %d+"):format(AMOUNT_UNLOCK_LEVEL), function(value)
+			pendingSpell.Amount = value
+			render()
+		end)
+
+		buildOptionRow(2, "Blast Size", PERCENT_OPTIONS, function(v)
+			return math.floor(v * 100) .. "%"
+		end, pendingSpell.BlastSize, false, nil, function(value)
+			pendingSpell.BlastSize = value
+			render()
+		end)
+	end
 
 	buildOptionRow(3, "Explosion Size", PERCENT_OPTIONS, function(v)
 		return math.floor(v * 100) .. "%"
@@ -420,6 +443,8 @@ local function renderEditor()
 			UltimateArt = pendingSpell.UltimateArt,
 			CastingStyle = pendingSpell.CastingStyle,
 			Name = nameBox.Text,
+			Duration = pendingSpell.Duration,
+			Thickness = pendingSpell.Thickness,
 		})
 		currentPage = "SlotList"
 		render()

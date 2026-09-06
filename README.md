@@ -494,10 +494,9 @@ Amount/Blast Size/Explosion Size/Ultimate Art. Everything downstream (destructib
 terrain carving, civilian/law consequences, combat XP) is unchanged, since it only ever cared
 about the final damage number.
 
-Known limitations: only Blast Attack is implemented (see above); Casting Style doesn't drive
-real animations yet (no animation system exists); and like quest progress and plot ownership,
-none of this needs new persistence work since spells save into the same `PlayerData.Spells`
-DataStore field as everything else.
+Known limitations: Casting Style doesn't drive real animations yet (no animation system
+exists); and like quest progress and plot ownership, none of this needs new persistence work
+since spells save into the same `PlayerData.Spells` DataStore field as everything else.
 
 ### Trying it out
 
@@ -508,7 +507,54 @@ DataStore field as everything else.
    accordingly.
 3. Use the admin panel (**F6**) to set your Mage Level to 10, open the Magic menu again, and
    confirm slot **E** is now unlocked — **CREATE** a spell there, choose **Blast Attack** (the
-   only clickable type), customize it, name it, and save.
+   only clickable type until level 75), customize it, name it, and save.
 4. Try pressing **E** in the world to cast your new spell from that slot.
 5. Set your Mage Level to 30 in the admin panel and reopen the editor on a spell — confirm
    **Amount** becomes selectable up to 5 instead of being stuck at 1.
+
+## Beam Attack: a channeled spell type (Phase 7 continued)
+
+Unlike Blast Attack (instant, one-shot), **Beam Attack** (unlocks at mage level 75) is a
+**hold-to-channel** spell — matching the reference's "fast beam" concept, adapted with two new
+editor parameters and a live power meter:
+
+- **Duration** (1-6 seconds) — the hard cap on how long a single channel can run, even with
+  mana to spare.
+- **Thickness** (20%-100%) — the beam's visual/hit radius.
+- **Explosion Size** still drives power, but now as **damage per second** and **mana cost per
+  second** instead of a one-shot amount — Amount and Blast Size don't apply to a single
+  continuous beam, so the editor swaps them out for Duration/Thickness when you're editing a
+  Beam Attack spell specifically.
+
+**How it works end to end:**
+
+- Holding the slot key (`Client/Controllers/SpellController.lua`) fires one `CastSpell` message
+  roughly every 0.1s instead of a single cast — each message is one "tick." Releasing the key
+  sends one final message with `Stop = true`.
+- `Server/Services/SpellService.lua` treats each tick as "advance this beam by however much
+  time passed since the last tick": it raycasts from the player toward their aim point, applies
+  `DamagePerSecond * dt` to whatever it hits (terrain, a destructible prop, a Humanoid — the
+  exact same consequence paths as Blast Attack: property fines, civilian wanted level, combat
+  XP), drains `ManaCostPerSecond * dt` from mana, and stretches a beam-shaped `Part` (server-
+  owned, so it replicates to everyone automatically) between the player and the hit point. The
+  beam stops the moment mana runs out, `Duration` is exceeded, or a `Stop` message arrives — and
+  a periodic sweep cleans up any beam that stops receiving ticks without an explicit `Stop`
+  (e.g. a dropped connection), so one can never persist forever.
+- **The power meter**: a bar just above the mana bar, visible only while a beam is being
+  channeled, that mirrors your current mana in real time — as the continuous drain eats into
+  it, you can watch (and predict) exactly when the beam will cut out, without needing a separate
+  manually-adjusted power control.
+- The per-slot cooldown (same mechanism as Blast Attack) starts counting from when the beam
+  *ends*, not when it started, so channeling the full Duration doesn't also force an extra wait
+  equal to the cooldown stacked on top from the very beginning.
+
+### Trying it out
+
+1. Set your Mage Level to 75 in the admin panel, open the Magic menu, and create a **Beam
+   Attack** spell in an unlocked slot — set Duration and Thickness to taste.
+2. Hold that slot's key in the world — confirm a beam stretches from you toward your cursor,
+   the power meter appears above the mana bar, and damage lands continuously on whatever the
+   beam touches (try it on the training dummy, the test house, and the mountain terrain).
+3. Keep holding until either the power meter runs out or your chosen Duration elapses — confirm
+   the beam cuts off automatically either way.
+4. Let go early instead — confirm the beam stops immediately and the meter disappears.

@@ -37,9 +37,10 @@ local SpellTypes: { [string]: SpellTypeDefinition } = {
 	BeamAttack = {
 		Id = "BeamAttack",
 		Name = "Beam Attack",
-		Description = "A fast beam of your magic that detonates on contact.",
+		Description = "Hold to channel a continuous beam of your magic. Drains mana per "
+			.. "second and stops when you run out or let go.",
 		MinMageLevel = 75,
-		Implemented = false,
+		Implemented = true,
 	},
 	Hover = {
 		Id = "Hover",
