@@ -124,12 +124,37 @@ to test spells against; it respawns a few seconds after being defeated.
 Once connected via the Rojo plugin (see above):
 
 1. Press Play (F5) in Studio.
-2. Press **1**, **2**, or **3** to select a spell (Ignis / Glacies / Fulgur).
-3. **Left-click** anywhere to cast toward that point. Watch the mana bar at the bottom of
-   the screen drop, and the training dummy (a grey block figure) take damage and eventually
-   fall over and respawn.
+2. Press **1**, **2**, or **3** to select a spell (Ignis / Glacies / Fulgur) — the hotbar at
+   the bottom of the screen highlights the selected slot with a white outline.
+3. **Left-click** anywhere to cast toward that point. Watch the mana bar drop, and the
+   training dummy (a grey block figure) take damage and eventually fall over and respawn.
 
-This is a deliberately minimal slice — no hotbar UI, no custom spell builder UI, no visuals
-beyond a colored ball yet. It exists to prove the server-authoritative loop (mana → cast →
-damage → XP) works end-to-end before we build the world destruction, economy, law/bounty,
-housing, and campaign systems on top of it.
+This is a deliberately minimal slice — no custom spell builder UI yet, no visuals beyond a
+colored ball. It exists to prove the server-authoritative loop (mana → cast → damage → XP)
+works end-to-end before more systems are layered on top.
+
+## Destructible world (Phase 2)
+
+**`Server/Services/DestructionService.lua`** is a generic component: any `BasePart` tagged
+`"Destructible"` (via `CollectionService`) with a numeric `Health` attribute can take damage
+through `DestructionService:Damage(part, amount)`. When health drops to 0 the part shatters
+into small debris chunks and disappears. Parts can share a `StructureId` attribute to belong
+to the same building — a single hit strong enough to be "overkill" (health-relative, tunable
+per part via `ShatterOverkillMultiplier`) demolishes every part sharing that `StructureId` at
+once, which is how a high-level beam should be able to level an entire house instead of just
+breaking the one panel it touched.
+
+`SpellService` now routes any projectile hit that isn't a `Humanoid` through
+`DestructionService:Damage`, so spells damage destructible scenery automatically.
+
+**`Server/Services/TestHouseService.lua`** spawns a small test house near the training dummy,
+built entirely from Studio primitive parts: 4 walls (200 HP each), a roof (150 HP), and one
+low-health window (15 HP) set into the west wall. A beginner-level Ignis/Glacies hit (with
+the current fixed Intensity 2 default) breaks the window in one shot but barely dents a wall
+— matching the "day-one player can break a window, high-level player can level the house"
+goal. Note two current simplifications to revisit later: spell intensity/quantity/projectile
+count are hardcoded on the client for now (the real spell-customization UI comes later, along
+with gating higher intensity behind mage level so low-level players can't already one-shot a
+wall), and the window is a separate overlapping part rather than an actual cut-out hole in the
+wall (true holes need CSG or pre-built wall-with-window meshes, planned for when real art
+assets replace these placeholder blocks).
