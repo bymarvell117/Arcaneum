@@ -231,9 +231,14 @@ exposes `BlockyHumanoid.SetCFrame(model, cframe)`, which moves the head along wi
 
 ## Terrain destruction (Phase 3)
 
-**`Server/Services/TerrainGenerationService.lua`** sculpts a small test mountain out of
-Roblox's built-in voxel `Terrain` (via `Terrain:FillBall`) off to the side of the house/dummy,
-so there's rock to test spells against.
+**`Server/Services/TerrainGenerationService.lua`** sculpts real Roblox voxel `Terrain` for the
+whole test area: a flat grass ground plane (`Terrain:FillBlock`) so players stand on actual
+terrain instead of Studio's plastic `Baseplate`, plus a mountain (`Terrain:FillBall`) off to the
+side for a bigger destruction target. It also destroys any `Baseplate` part it finds in
+`workspace` at game start — this only affects the live Play session (Studio's Edit-mode place
+file is never touched), so it's safe to run every time. The flat ground is filled *before* the
+mountain specifically, since doing it the other way around would slice a flat grass shelf
+through the mountain's base wherever they overlap.
 
 **`Server/Services/TerrainDestructionService.lua`** carves craters into that terrain by
 filling a ball of `Air` at the impact point — the crater radius scales with the damage dealt

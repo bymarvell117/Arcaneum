@@ -1,6 +1,6 @@
 -- Spawns a small physical kiosk with a ProximityPrompt so the currency exchange has a
 -- place in the world to test from, instead of just being a hidden remote.
-local KIOSK_POSITION = Vector3.new(-15, 1, 25)
+local KIOSK_POSITION = Vector3.new(-15, 2, 25)
 
 local ExchangeKioskService = {}
 
