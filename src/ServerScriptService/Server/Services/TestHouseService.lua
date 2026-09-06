@@ -30,11 +30,17 @@ local function buildHouse(): Model
 	floor.CFrame = CFrame.new(HOUSE_POSITION)
 	floor.Parent = model
 
+	-- West wall is built in 4 segments around a real window opening (left, right,
+	-- sill, lintel) instead of one solid slab, so the window pane isn't buried
+	-- inside opaque geometry and can actually be seen and hit.
 	local wallDefs = {
 		{ Name = "WallNorth", Size = Vector3.new(12, WALL_HEIGHT, 1), Offset = Vector3.new(0, WALL_HEIGHT / 2, -5.5) },
 		{ Name = "WallSouth", Size = Vector3.new(12, WALL_HEIGHT, 1), Offset = Vector3.new(0, WALL_HEIGHT / 2, 5.5) },
 		{ Name = "WallEast", Size = Vector3.new(1, WALL_HEIGHT, 12), Offset = Vector3.new(5.5, WALL_HEIGHT / 2, 0) },
-		{ Name = "WallWest", Size = Vector3.new(1, WALL_HEIGHT, 12), Offset = Vector3.new(-5.5, WALL_HEIGHT / 2, 0) },
+		{ Name = "WallWestLeft", Size = Vector3.new(1, WALL_HEIGHT, 4.5), Offset = Vector3.new(-5.5, WALL_HEIGHT / 2, -3.75) },
+		{ Name = "WallWestRight", Size = Vector3.new(1, WALL_HEIGHT, 4.5), Offset = Vector3.new(-5.5, WALL_HEIGHT / 2, 3.75) },
+		{ Name = "WallWestSill", Size = Vector3.new(1, 2, 3), Offset = Vector3.new(-5.5, 1, 0) },
+		{ Name = "WallWestLintel", Size = Vector3.new(1, 3.5, 3), Offset = Vector3.new(-5.5, 6.25, 0) },
 	}
 
 	for _, def in wallDefs do
@@ -49,11 +55,11 @@ local function buildHouse(): Model
 
 	local window = Instance.new("Part")
 	window.Name = "Window"
-	window.Size = Vector3.new(0.4, 2.5, 3)
+	window.Size = Vector3.new(0.3, 2.5, 3)
 	window.Color = Color3.fromRGB(150, 220, 255)
 	window.Material = Enum.Material.Glass
 	window.Transparency = 0.3
-	window.CFrame = floor.CFrame * CFrame.new(-5.4, WALL_HEIGHT / 2, 0)
+	window.CFrame = floor.CFrame * CFrame.new(-5.5, 3.25, 0)
 	window.Parent = model
 	makeDestructible(window, WINDOW_HEALTH, STRUCTURE_ID)
 
