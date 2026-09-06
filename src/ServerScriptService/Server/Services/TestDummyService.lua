@@ -1,0 +1,48 @@
+local RESPAWN_DELAY = 4
+local DUMMY_MAX_HEALTH = 60
+local SPAWN_POSITION = Vector3.new(0, 3, 15)
+
+local TestDummyService = {}
+
+local function buildDummy(): Model
+	local model = Instance.new("Model")
+	model.Name = "TrainingDummy"
+
+	local torso = Instance.new("Part")
+	torso.Name = "Torso"
+	torso.Size = Vector3.new(2, 2, 1)
+	torso.Color = Color3.fromRGB(120, 120, 130)
+	torso.Material = Enum.Material.SmoothPlastic
+	torso.Anchored = true
+	torso.CFrame = CFrame.new(SPAWN_POSITION)
+	torso.Parent = model
+
+	local head = Instance.new("Part")
+	head.Name = "Head"
+	head.Shape = Enum.PartType.Ball
+	head.Size = Vector3.new(1.2, 1.2, 1.2)
+	head.Color = Color3.fromRGB(230, 200, 170)
+	head.Anchored = true
+	head.CanCollide = false
+	head.CFrame = torso.CFrame * CFrame.new(0, 1.6, 0)
+	head.Parent = model
+
+	local humanoid = Instance.new("Humanoid")
+	humanoid.MaxHealth = DUMMY_MAX_HEALTH
+	humanoid.Health = DUMMY_MAX_HEALTH
+	humanoid.Parent = model
+
+	humanoid.Died:Connect(function()
+		task.wait(RESPAWN_DELAY)
+		model:Destroy()
+		buildDummy().Parent = workspace
+	end)
+
+	return model
+end
+
+function TestDummyService:Start()
+	buildDummy().Parent = workspace
+end
+
+return TestDummyService
