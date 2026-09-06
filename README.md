@@ -148,13 +148,20 @@ breaking the one panel it touched.
 `DestructionService:Damage`, so spells damage destructible scenery automatically.
 
 **`Server/Services/TestHouseService.lua`** spawns a small test house near the training dummy,
-built entirely from Studio primitive parts: 4 walls (200 HP each), a roof (150 HP), and one
-low-health window (15 HP) set into the west wall. A beginner-level Ignis/Glacies hit (with
-the current fixed Intensity 2 default) breaks the window in one shot but barely dents a wall
-— matching the "day-one player can break a window, high-level player can level the house"
-goal. Note two current simplifications to revisit later: spell intensity/quantity/projectile
-count are hardcoded on the client for now (the real spell-customization UI comes later, along
-with gating higher intensity behind mage level so low-level players can't already one-shot a
-wall), and the window is a separate overlapping part rather than an actual cut-out hole in the
-wall (true holes need CSG or pre-built wall-with-window meshes, planned for when real art
-assets replace these placeholder blocks).
+built entirely from Studio primitive parts: 4 walls (200 HP each, with the west one split into
+left/right/sill/lintel segments around a real window opening), a roof (150 HP), and one
+low-health window (15 HP) filling that opening. A beginner-level Ignis/Glacies hit (with the
+current fixed Intensity 2 default) breaks the window in one shot but barely dents a wall —
+matching the "day-one player can break a window, high-level player can level the house" goal.
+
+**Testing shortcut:** point your mouse at anything and press **P** to deal 1000 fixed damage
+to it instantly (`Server/Services/DebugService.lua` + `Client/Controllers/DebugController.lua`)
+— enough to one-shot the training dummy or, if the hit is strong enough relative to a part's
+health, trigger the whole-structure overkill collapse on the test house. This bypasses
+mana/cooldown/level entirely and is temporary; it'll be folded into the real admin panel
+later. Use it to test destruction without waiting on the real spell-customization UI.
+
+Known simplification to revisit later: spell intensity/quantity/projectile count are
+hardcoded on the client for now — the real spell-customization UI comes later, along with
+gating higher intensity behind mage level so low-level players can't already one-shot a wall
+with a real spell (only the debug key can do that today).
