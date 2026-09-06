@@ -15,6 +15,7 @@ local CharacterCreationService = {}
 
 local characterClassAssignedEvent = Net.GetEvent("CharacterClassAssigned")
 local selectCharacterClassEvent = Net.GetEvent("SelectCharacterClass")
+local getCharacterClassFunction = Net.GetFunction("GetCharacterClass")
 
 local function freezeCharacter(character: Model)
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -79,12 +80,18 @@ function CharacterCreationService:ResetClass(player: Player)
 end
 
 function CharacterCreationService:Start()
-	Players.PlayerAdded:Connect(function(player)
-		task.spawn(function()
-			local data = waitForData(player)
-			characterClassAssignedEvent:FireClient(player, data and data.CharacterClass or nil)
-		end)
+	-- A RemoteFunction the client calls once at startup, rather than the server
+	-- firing a RemoteEvent on PlayerAdded: firing on join races the client's own
+	-- script startup (Net.GetEvent, WaitForChild, connecting listeners) — if the
+	-- server fires first, that one-shot event is lost forever and the client never
+	-- learns it should show the picker. Invoking pulls the current state on demand,
+	-- whenever the client is actually ready to receive it.
+	getCharacterClassFunction.OnServerInvoke = function(player: Player)
+		local data = waitForData(player)
+		return data and data.CharacterClass or nil
+	end
 
+	Players.PlayerAdded:Connect(function(player)
 		player.CharacterAdded:Connect(function(character)
 			-- Freeze immediately so there's no window to move before we know whether
 			-- this player already has a class from a previous session.

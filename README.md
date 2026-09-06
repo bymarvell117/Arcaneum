@@ -382,17 +382,28 @@ Your choice is saved permanently (`PlayerData.CharacterClass`, part of the same 
 profile as currency/XP) — you only see the picker once. Picking a class immediately unfreezes
 your character.
 
-### A known race, and how it's handled
+### Two known races, and how they're handled
 
-`PlayerDataService` loads each player's profile asynchronously (a DataStore call) via its own
-`Players.PlayerAdded` connection, completely independent from `CharacterCreationService`'s own
-`PlayerAdded`/`CharacterAdded` connections. Since Roblox doesn't guarantee which of two
-unrelated Loader-spawned connections runs first, `CharacterCreationService` can't just check
-`PlayerDataService:GetData(player)` once and trust it — the profile might not be loaded yet.
-It handles this by freezing the character immediately and unfreezing only once
-`PlayerDataService:GetData(player)` starts returning non-nil, err on the side of an extra
-half-second frozen rather than briefly showing the picker to a returning player who already
-has a class.
+**Server-side**: `PlayerDataService` loads each player's profile asynchronously (a DataStore
+call) via its own `Players.PlayerAdded` connection, completely independent from
+`CharacterCreationService`'s own `PlayerAdded`/`CharacterAdded` connections. Since Roblox
+doesn't guarantee which of two unrelated Loader-spawned connections runs first,
+`CharacterCreationService` can't just check `PlayerDataService:GetData(player)` once and trust
+it — the profile might not be loaded yet. It handles this by freezing the character
+immediately and unfreezing only once `PlayerDataService:GetData(player)` starts returning
+non-nil, erring on the side of an extra half-second frozen rather than briefly showing the
+picker to a returning player who already has a class.
+
+**Client-side (the one that actually broke first)**: the very first version of this had the
+server *push* the player's class to the client via a `RemoteEvent` right on join. That's a
+race too — if the server fires before the client's own script has finished starting up
+(`Net.GetEvent`, connecting `OnClientEvent`), the one-shot event is simply lost, and the client
+never learns it should show the picker. The symptom was exactly "frozen with nothing on
+screen." Fixed by having the client *pull* instead: `CharacterCreationController`,
+`SpellController`, and `ManaBarController` each call a `GetCharacterClass` `RemoteFunction`
+once at startup to fetch the current state on demand, rather than trusting a push to arrive in
+time. The `RemoteEvent` push is kept only for updates that happen *after* the client is
+already known to be connected (confirming a fresh pick, or an admin-panel class reset).
 
 ### Trying it out
 

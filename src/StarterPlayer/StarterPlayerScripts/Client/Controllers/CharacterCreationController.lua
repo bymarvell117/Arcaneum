@@ -9,6 +9,7 @@ local CLASS_ORDER = { "FireMage", "IceMage", "StormMage", "WitchSlayer" }
 local player = Players.LocalPlayer
 local characterClassAssignedEvent = Net.GetEvent("CharacterClassAssigned")
 local selectCharacterClassEvent = Net.GetEvent("SelectCharacterClass")
+local getCharacterClassFunction = Net.GetFunction("GetCharacterClass")
 
 local CharacterCreationController = {}
 
@@ -122,6 +123,12 @@ function CharacterCreationController:Start()
 		CharacterCreationController.SelectedClass = classId
 		screenGui.Enabled = (classId == nil)
 	end)
+
+	-- Pull the current state instead of only relying on the server's push: a push
+	-- fired before this script finished connecting would otherwise be lost forever.
+	local currentClass = getCharacterClassFunction:InvokeServer()
+	CharacterCreationController.SelectedClass = currentClass
+	screenGui.Enabled = (currentClass == nil)
 end
 
 return CharacterCreationController

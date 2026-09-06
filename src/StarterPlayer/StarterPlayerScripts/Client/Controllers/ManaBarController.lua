@@ -6,6 +6,7 @@ local Net = require(ReplicatedStorage.Shared.Framework.Net)
 local player = Players.LocalPlayer
 local manaUpdated = Net.GetEvent("ManaUpdated")
 local characterClassAssignedEvent = Net.GetEvent("CharacterClassAssigned")
+local getCharacterClassFunction = Net.GetFunction("GetCharacterClass")
 
 local ManaBarController = {}
 
@@ -54,6 +55,10 @@ function ManaBarController:Start()
 	characterClassAssignedEvent.OnClientEvent:Connect(function(classId: string?)
 		screenGui.Enabled = classId ~= "WitchSlayer"
 	end)
+
+	-- Pull the current class instead of only relying on the server's push, which
+	-- could fire before this script had connected the listener above.
+	screenGui.Enabled = getCharacterClassFunction:InvokeServer() ~= "WitchSlayer"
 end
 
 return ManaBarController

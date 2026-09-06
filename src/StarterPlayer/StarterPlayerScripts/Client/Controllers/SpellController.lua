@@ -20,6 +20,7 @@ local SLOT_GAP = 8
 local player = Players.LocalPlayer
 local castSpellEvent = Net.GetEvent("CastSpell")
 local characterClassAssignedEvent = Net.GetEvent("CharacterClassAssigned")
+local getCharacterClassFunction = Net.GetFunction("GetCharacterClass")
 
 local SpellController = {}
 
@@ -160,6 +161,12 @@ function SpellController:Start()
 		isWitchSlayer = classId == "WitchSlayer"
 		hotbarGui.Enabled = not isWitchSlayer
 	end)
+
+	-- Pull the current class instead of only relying on the server's push, which
+	-- could fire before this script had connected the listener above.
+	local currentClass = getCharacterClassFunction:InvokeServer()
+	isWitchSlayer = currentClass == "WitchSlayer"
+	hotbarGui.Enabled = not isWitchSlayer
 
 	UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		if gameProcessed then
