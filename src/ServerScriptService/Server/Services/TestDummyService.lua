@@ -1,10 +1,15 @@
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
 
 local BlockyHumanoid = require(ReplicatedStorage.Shared.NPC.BlockyHumanoid)
+local PlayerDataService = require(ServerScriptService.Server.Services.PlayerDataService)
 
 local RESPAWN_DELAY = 4
 local DUMMY_MAX_HEALTH = 60
 local SPAWN_POSITION = Vector3.new(0, 3, 15)
+local SILVER_REWARD = 8
+local CHARACTER_XP_REWARD = 10
 
 local TestDummyService = {}
 
@@ -18,6 +23,15 @@ local function buildDummy(): Model
 
 	local humanoid = model:FindFirstChildOfClass("Humanoid") :: Humanoid
 	humanoid.Died:Connect(function()
+		local killerUserId = model:GetAttribute("LastDamagedByUserId")
+		if typeof(killerUserId) == "number" then
+			local killer = Players:GetPlayerByUserId(killerUserId)
+			if killer then
+				PlayerDataService:AddCurrency(killer, "Silver", SILVER_REWARD)
+				PlayerDataService:AddXP(killer, "Character", CHARACTER_XP_REWARD)
+			end
+		end
+
 		task.wait(RESPAWN_DELAY)
 		model:Destroy()
 		buildDummy().Parent = workspace

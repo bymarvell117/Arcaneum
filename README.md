@@ -258,3 +258,34 @@ directly — once the real spell-customization UI exists (letting players actual
 intensity/projectile counts, gated by level), a high-level player naturally deals enough
 damage per hit to carve caves, while a beginner's small hits stay cosmetic dents, matching the
 original goal without needing a separate level check here.
+
+## Economy (Phase 4)
+
+Two currencies, matching the design goal that **1 Gold = 10 Silver**:
+
+- **Earning it for real**: defeating the `TrainingDummy` now pays out Silver and Character XP
+  (`Server/Services/TestDummyService.lua`) instead of currency only being reachable through the
+  admin panel. `SpellService` and the debug damage key tag whichever Humanoid they hit with a
+  `LastDamagedByUserId` attribute right before dealing damage, so any NPC's `Humanoid.Died`
+  handler can look up who gets credit for the kill — the same pattern will work for future
+  enemies without needing a whole combat-log system yet.
+- **`Server/Services/EconomyService.lua`** handles converting between the two currencies
+  (`ExchangeCurrency` remote, server-validated both ways — can't convert more than you have).
+- **`Server/Services/ExchangeKioskService.lua`** spawns a physical kiosk (a wood-colored block
+  with a `ProximityPrompt`) near the test house so the exchange has a place in the world rather
+  than being a hidden remote. Walk up to it, hold **E** ("Exchange Currency"), and a small panel
+  lets you convert 10 Silver → 1 Gold or 1 Gold → 10 Silver.
+- **`Client/Controllers/CurrencyController.lua`** shows your current Silver/Gold in the
+  top-left corner at all times.
+
+This intentionally stays a currency-only exchange for now — a real shop with purchasable items
+(cosmetics, housing upgrades) needs those systems to exist first, so it's scoped out until
+Phase: Characters & Cosmetics and Phase: Housing land.
+
+### Trying it out
+
+1. Defeat the `TrainingDummy` — you should see your Silver count (top-left) go up, along with
+   a small burst of Character XP.
+2. Walk to the wooden kiosk near the house, hold **E**, and try both conversion buttons —
+   watch Silver and Gold trade at the 10:1 rate. Try converting more Gold than you have; nothing
+   should happen (the server silently rejects it).

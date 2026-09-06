@@ -34,6 +34,7 @@ local function handleDebugDealDamage(player: Player, target: unknown, hitPositio
 
 	local humanoid = target.Parent and target.Parent:FindFirstChildOfClass("Humanoid")
 	if humanoid then
+		target.Parent:SetAttribute("LastDamagedByUserId", player.UserId)
 		humanoid:TakeDamage(DEBUG_DAMAGE)
 		if CollectionService:HasTag(target.Parent, "Civilian") then
 			WantedService:ReportCivilianDamage(player, humanoid.Health <= 0)

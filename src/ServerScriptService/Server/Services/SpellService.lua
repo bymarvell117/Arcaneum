@@ -56,6 +56,7 @@ local function spawnProjectile(origin: Vector3, direction: Vector3, resolved: Sp
 		else
 			local humanoid = hit.Parent and hit.Parent:FindFirstChildOfClass("Humanoid")
 			if humanoid then
+				hit.Parent:SetAttribute("LastDamagedByUserId", caster.UserId)
 				humanoid:TakeDamage(resolved.DamagePerProjectile)
 				PlayerDataService:AddXP(caster, "Combat", COMBAT_XP_PER_HIT)
 				if CollectionService:HasTag(hit.Parent, "Civilian") then

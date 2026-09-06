@@ -24,6 +24,7 @@ local dataStore = nil
 local profiles: { [Player]: PlayerData } = {}
 
 local manaUpdated = Net.GetEvent("ManaUpdated")
+local currencyUpdated = Net.GetEvent("CurrencyUpdated")
 
 local function defaultData(): PlayerData
 	return {
@@ -90,6 +91,7 @@ function PlayerDataService:Start()
 		profiles[player] = loadProfile(player)
 		local data = profiles[player]
 		manaUpdated:FireClient(player, data.Mana, StatFormulas.MaxManaForLevel(self:GetMageLevel(player)))
+		currencyUpdated:FireClient(player, data.Silver, data.Gold)
 	end)
 
 	Players.PlayerRemoving:Connect(function(player)
@@ -166,6 +168,7 @@ function PlayerDataService:AddCurrency(player: Player, currency: "Silver" | "Gol
 		return
 	end
 	data[currency] = math.max(0, data[currency] + amount)
+	currencyUpdated:FireClient(player, data.Silver, data.Gold)
 end
 
 function PlayerDataService:SetCurrency(player: Player, currency: "Silver" | "Gold", amount: number)
@@ -174,6 +177,7 @@ function PlayerDataService:SetCurrency(player: Player, currency: "Silver" | "Gol
 		return
 	end
 	data[currency] = amount
+	currencyUpdated:FireClient(player, data.Silver, data.Gold)
 end
 
 function PlayerDataService:RefillMana(player: Player)
