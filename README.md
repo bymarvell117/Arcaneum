@@ -357,11 +357,19 @@ saved to the DataStore either, so it resets on server restart just like quest pr
 
 ## Character creation & classes (Phase 6)
 
-Every character now spawns on a **plain default R15 body** instead of the player's own Roblox
-avatar (`Server/Services/CharacterAppearanceService.lua`, via
-`Humanoid:ApplyDescription(HumanoidDescription.new(), Enum.HumanoidRigType.R15)`) — a clean,
-consistent base to build custom character art and the armor/clothing layer system on top of
-later, regardless of what any given player happens to have equipped on their account.
+Every character now gets recolored to a plain, accessory-free body instead of showing the
+player's own Roblox avatar (`Server/Services/CharacterAppearanceService.lua`, via
+`Humanoid:ApplyDescription(description)`) — a clean, consistent base to build custom character
+art and the armor/clothing layer system on top of later, regardless of what any given player
+happens to have equipped on their account.
+
+**One manual Studio step required for R15:** `ApplyDescription`'s second parameter is
+`Enum.AssetTypeVerification`, not a rig-type override — there's no scriptable way to force R15
+from code here. To make every player spawn on R15 (instead of whatever rig type their own
+account defaults to), set this place's **Avatar Type** to **R15** in Studio's
+**Home → Game Settings → Avatar** tab. Like the Baseplate part, this is a project-level Studio
+setting that lives outside `src/`, so Rojo can't sync it — it only needs to be set once per
+place file.
 
 On first join, a character is frozen (`WalkSpeed`/`JumpPower` set to 0) and a **Choose Your
 Path** screen appears (`Server/Services/CharacterCreationService.lua` +

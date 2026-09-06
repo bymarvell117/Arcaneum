@@ -156,7 +156,7 @@ local function buildPreviewViewport(parent: Instance): (ViewportFrame, (Color3, 
 		description.RightArmColor = shirt
 		description.LeftLegColor = pants
 		description.RightLegColor = pants
-		humanoid:ApplyDescription(description, Enum.HumanoidRigType.R15)
+		humanoid:ApplyDescription(description)
 	end
 
 	return viewportFrame, refresh

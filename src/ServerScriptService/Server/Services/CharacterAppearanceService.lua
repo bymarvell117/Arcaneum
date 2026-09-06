@@ -6,11 +6,18 @@ local Net = require(ReplicatedStorage.Shared.Framework.Net)
 local AppearancePalette = require(ReplicatedStorage.Shared.Character.AppearancePalette)
 local PlayerDataService = require(ServerScriptService.Server.Services.PlayerDataService)
 
--- Forces every character onto a plain default R15 body (no accessories, since we
--- don't have verified real catalog asset IDs to offer yet) instead of the player's
--- own Roblox avatar, colored per their saved skin/shirt/pants choice. A clean base
+-- Recolors every character to a plain body (no accessories, since we don't have
+-- verified real catalog asset IDs to offer yet) per the player's saved
+-- skin/shirt/pants choice, instead of showing their own Roblox avatar. A clean base
 -- ready for the future custom character art (Disney-Infinity-style) and the separate
 -- armor/clothing layer system to build on top of.
+--
+-- NOTE: ApplyDescription's second parameter is Enum.AssetTypeVerification, not a rig
+-- type override — there's no scriptable way to force R15 here. Everyone spawning on
+-- R15 (rather than whatever rig their own account defaults to) requires setting this
+-- place's Avatar Type to "R15" in Studio's Game Settings > Avatar tab, which is a
+-- project setting Rojo doesn't sync (like the Baseplate part, it lives outside the
+-- src/ tree).
 local CharacterAppearanceService = {}
 
 local setAppearanceEvent = Net.GetEvent("SetAppearance")
@@ -30,7 +37,7 @@ end
 local function applyAppearance(player: Player, character: Model)
 	PlayerDataService:WaitForData(player)
 	local humanoid = character:WaitForChild("Humanoid") :: Humanoid
-	humanoid:ApplyDescription(buildDescription(player), Enum.HumanoidRigType.R15)
+	humanoid:ApplyDescription(buildDescription(player))
 end
 
 local function isKnownPaletteColor(value: unknown, palette: { Color3 }): boolean
