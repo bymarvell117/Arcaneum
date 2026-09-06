@@ -178,7 +178,8 @@ which need mage level 3/5).
   your own UserId there before publishing if you want admin access outside Studio. The server
   re-checks this on every command; the client UI only ever appears for authorized players, but
   authorization is never trusted from the client.
-- **Usage**: press **F9** to toggle the panel (top-left). Type a number next to a field and
+- **Usage**: press **F6** to toggle the panel (top-left) — chosen to avoid colliding with
+  Studio's own F9 developer console. Type a number next to a field and
   click **Set**. Setting a level directly sets the underlying XP total to match that level's
   threshold (`StatFormulas.XPForLevel`), so mage level changes also matter for spell level
   gates immediately.

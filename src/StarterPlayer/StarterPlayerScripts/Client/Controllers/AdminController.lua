@@ -4,7 +4,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local Net = require(ReplicatedStorage.Shared.Framework.Net)
 
-local TOGGLE_KEY = Enum.KeyCode.F9
+local TOGGLE_KEY = Enum.KeyCode.F6
 
 local player = Players.LocalPlayer
 local adminAuthorizedEvent = Net.GetEvent("AdminAuthorized")
@@ -96,7 +96,7 @@ local function buildPanel(): ScreenGui
 	title.Font = Enum.Font.GothamBold
 	title.TextSize = 16
 	title.TextColor3 = Color3.new(1, 1, 1)
-	title.Text = "Admin Panel (F9 to toggle)"
+	title.Text = "Admin Panel (F6 to toggle)"
 	title.TextXAlignment = Enum.TextXAlignment.Left
 	title.LayoutOrder = 0
 	title.Parent = panel
