@@ -223,3 +223,38 @@ in gold stars as your wanted level rises.
    start closing in on you, hitting you on contact.
 4. Stop committing crimes and wait — wanted level decays automatically over time, and the
    enforcer disappears once it hits 0.
+
+**Fixed:** the enforcer's head used to stay frozen in place while its body chased you (both
+parts were positioned once at spawn and never re-synced). `Shared/NPC/BlockyHumanoid.lua` now
+exposes `BlockyHumanoid.SetCFrame(model, cframe)`, which moves the head along with the torso —
+`LawEnforcerService` uses it instead of setting `Torso.CFrame` directly.
+
+## Terrain destruction (Phase 3)
+
+**`Server/Services/TerrainGenerationService.lua`** sculpts a small test mountain out of
+Roblox's built-in voxel `Terrain` (via `Terrain:FillBall`) off to the side of the house/dummy,
+so there's rock to test spells against.
+
+**`Server/Services/TerrainDestructionService.lua`** carves craters into that terrain by
+filling a ball of `Air` at the impact point — the crater radius scales with the damage dealt
+(clamped between 1 and 15 studs), so a normal spell barely chips the rock while a very large
+hit (like the **P** debug key) can punch a real hole or tunnel through it. This is a separate
+system from `DestructionService` because terrain isn't made of discrete parts with health —
+Roblox terrain is voxel-based and has its own carve/fill API.
+
+Both `SpellService` and the debug damage key now check for `workspace.Terrain` specifically
+(terrain isn't a `BasePart`, so it can't go through the same code path as houses/NPCs) and
+route hits to `TerrainDestructionService:Carve(position, damage)` instead.
+
+### Trying it out
+
+The test mountain is roughly 65 studs east of the house (`Vector3.new(40, -5, 0)`, radius 25).
+Walk over to it and hit it with a spell, or aim the **P** debug key at it — you should see a
+crater appear where you hit, roughly proportional to the damage. Repeated big hits in the same
+spot will start tunneling through the mountain.
+
+Known limitation: crater size currently only depends on flat damage number, not on mage level
+directly — once the real spell-customization UI exists (letting players actually pick high
+intensity/projectile counts, gated by level), a high-level player naturally deals enough
+damage per hit to carve caves, while a beginner's small hits stay cosmetic dents, matching the
+original goal without needing a separate level check here.

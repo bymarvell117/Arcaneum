@@ -5,6 +5,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Net = require(ReplicatedStorage.Shared.Framework.Net)
 local DestructionService = require(ServerScriptService.Server.Services.DestructionService)
 local WantedService = require(ServerScriptService.Server.Services.WantedService)
+local TerrainDestructionService = require(ServerScriptService.Server.Services.TerrainDestructionService)
 
 -- TEMPORARY testing tool: deals a large fixed hit to whatever the client is
 -- pointing at, bypassing mana/cooldown/level checks entirely. Meant to be
@@ -15,11 +16,19 @@ local DebugService = {}
 
 local debugDealDamageEvent = Net.GetEvent("DebugDealDamage")
 
-local function handleDebugDealDamage(player: Player, target: unknown)
-	if typeof(target) ~= "Instance" or not target:IsA("BasePart") then
+local function handleDebugDealDamage(player: Player, target: unknown, hitPosition: unknown)
+	if typeof(target) ~= "Instance" or not target:IsDescendantOf(workspace) then
 		return
 	end
-	if not target:IsDescendantOf(workspace) then
+
+	if target == workspace.Terrain then
+		if typeof(hitPosition) == "Vector3" then
+			TerrainDestructionService:Carve(hitPosition, DEBUG_DAMAGE)
+		end
+		return
+	end
+
+	if not target:IsA("BasePart") then
 		return
 	end
 

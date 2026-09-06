@@ -81,7 +81,8 @@ function LawEnforcerService:SpawnEnforcer(player: Player, wantedLevel: number)
 			local targetRoot = targetCharacter and targetCharacter:FindFirstChild("HumanoidRootPart")
 			if targetRoot then
 				local newPosition = torso.Position:Lerp(targetRoot.Position, CHASE_LERP_ALPHA)
-				torso.CFrame = CFrame.new(newPosition) * (torso.CFrame - torso.Position)
+				local newTorsoCFrame = CFrame.new(newPosition) * (torso.CFrame - torso.Position)
+				BlockyHumanoid.SetCFrame(model, newTorsoCFrame)
 			end
 			task.wait(CHASE_TICK)
 		end

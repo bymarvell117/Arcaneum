@@ -21,7 +21,7 @@ function DebugController:Start()
 		local mouse = player:GetMouse()
 		local target = mouse and mouse.Target
 		if target then
-			debugDealDamageEvent:FireServer(target)
+			debugDealDamageEvent:FireServer(target, mouse.Hit.Position)
 		end
 	end)
 end
