@@ -2,10 +2,13 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Net = require(ReplicatedStorage.Shared.Framework.Net)
-local CharacterClasses = require(ReplicatedStorage.Shared.Character.CharacterClasses)
 local AppearancePalette = require(ReplicatedStorage.Shared.Character.AppearancePalette)
+local MagicTypes = require(ReplicatedStorage.Shared.Character.MagicTypes)
 
-local CLASS_ORDER = { "FireMage", "IceMage", "StormMage", "WitchSlayer" }
+local MAGIC_GRID_WIDTH = 640
+local MAGIC_GRID_HEIGHT = 560
+local MAGIC_CARD_SIZE = UDim2.fromOffset(112, 74)
+local MAGIC_CARD_PADDING = UDim2.fromOffset(10, 10)
 local DEFAULT_SKIN_INDEX = 3
 local DEFAULT_SHIRT_INDEX = 3
 local DEFAULT_PANTS_INDEX = 11
@@ -24,10 +27,13 @@ CharacterCreationController.SelectedClass = nil :: string?
 
 -- ===== Shared panel chrome =====
 
-local function buildPanel(parent: Instance, titleText: string): (Frame, Frame)
+local function buildPanel(parent: Instance, titleText: string, width: number?, height: number?): (Frame, Frame)
+	local panelWidth = width or 560
+	local panelHeight = height or 420
+
 	local panel = Instance.new("Frame")
-	panel.Size = UDim2.fromOffset(560, 420)
-	panel.Position = UDim2.new(0.5, -280, 0.5, -210)
+	panel.Size = UDim2.fromOffset(panelWidth, panelHeight)
+	panel.Position = UDim2.new(0.5, -panelWidth / 2, 0.5, -panelHeight / 2)
 	panel.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
 	panel.Parent = parent
 
@@ -53,66 +59,92 @@ local function buildPanel(parent: Instance, titleText: string): (Frame, Frame)
 	return panel, body
 end
 
--- ===== Step 2: class picker =====
+-- ===== Step 2: magic type picker =====
 
-local function buildClassCard(parent: Instance, classId: string, onPick: (string) -> ())
-	local definition = CharacterClasses[classId]
-
+-- Cards for the ~20 magic types shown here always carry their intended color (matching
+-- the full-catalog reference), but only the ones with a real ClassId behind them
+-- (Fire/Ice/Lightning/Earth right now) are clickable — the rest are washed out and
+-- tagged "Soon", same pattern as the spell-type picker in MagicMenuController.
+local function buildMagicTypeCard(parent: Instance, magicType: MagicTypes.MagicTypeDefinition, onPick: (string) -> ())
 	local card = Instance.new("TextButton")
 	card.Text = ""
-	card.BackgroundColor3 = definition.IsMage and Color3.fromRGB(50, 60, 100) or Color3.fromRGB(90, 40, 40)
-	card.AutoButtonColor = true
+	card.BackgroundColor3 = magicType.Color
+	card.BackgroundTransparency = magicType.Implemented and 0 or 0.6
+	card.AutoButtonColor = magicType.Implemented
 	card.Parent = parent
 
 	local cardCorner = Instance.new("UICorner")
 	cardCorner.CornerRadius = UDim.new(0, 8)
 	cardCorner.Parent = card
 
-	local padding = Instance.new("UIPadding")
-	padding.PaddingTop = UDim.new(0, 8)
-	padding.PaddingLeft = UDim.new(0, 10)
-	padding.PaddingRight = UDim.new(0, 10)
-	padding.Parent = card
-
 	local nameLabel = Instance.new("TextLabel")
-	nameLabel.Size = UDim2.new(1, 0, 0, 22)
+	nameLabel.Size = UDim2.new(1, -8, 0, 20)
+	nameLabel.Position = UDim2.new(0, 4, 1, -24)
 	nameLabel.BackgroundTransparency = 1
 	nameLabel.Font = Enum.Font.GothamBold
-	nameLabel.TextSize = 16
-	nameLabel.TextColor3 = Color3.new(1, 1, 1)
+	nameLabel.TextSize = 13
+	nameLabel.TextColor3 = magicType.Implemented and Color3.new(0, 0, 0) or Color3.fromRGB(230, 230, 230)
 	nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-	nameLabel.Text = definition.Name
+	nameLabel.Text = magicType.DisplayName
 	nameLabel.Parent = card
 
-	local descLabel = Instance.new("TextLabel")
-	descLabel.Size = UDim2.new(1, 0, 1, -26)
-	descLabel.Position = UDim2.new(0, 0, 0, 26)
-	descLabel.BackgroundTransparency = 1
-	descLabel.Font = Enum.Font.Gotham
-	descLabel.TextSize = 13
-	descLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
-	descLabel.TextWrapped = true
-	descLabel.TextXAlignment = Enum.TextXAlignment.Left
-	descLabel.TextYAlignment = Enum.TextYAlignment.Top
-	descLabel.Text = definition.Description
-	descLabel.Parent = card
-
-	card.MouseButton1Click:Connect(function()
-		onPick(classId)
-	end)
+	if magicType.Implemented and magicType.ClassId then
+		local classId = magicType.ClassId :: string
+		card.MouseButton1Click:Connect(function()
+			onPick(classId)
+		end)
+	else
+		local soonLabel = Instance.new("TextLabel")
+		soonLabel.Size = UDim2.new(1, -8, 0, 16)
+		soonLabel.Position = UDim2.new(0, 4, 0, 6)
+		soonLabel.BackgroundTransparency = 1
+		soonLabel.Font = Enum.Font.Gotham
+		soonLabel.TextSize = 10
+		soonLabel.TextColor3 = Color3.fromRGB(210, 210, 210)
+		soonLabel.TextXAlignment = Enum.TextXAlignment.Left
+		soonLabel.Text = "Soon"
+		soonLabel.Parent = card
+	end
 end
 
-local function buildClassPage(parent: Instance, onPick: (string) -> ()): Frame
-	local panel, body = buildPanel(parent, "Choose Your Path")
+local function buildMagicGridPage(parent: Instance, onPick: (string) -> ()): Frame
+	local panel, body = buildPanel(parent, "Choose a Magic", MAGIC_GRID_WIDTH, MAGIC_GRID_HEIGHT)
+
+	local scrollFrame = Instance.new("ScrollingFrame")
+	scrollFrame.Size = UDim2.new(1, 0, 1, -48)
+	scrollFrame.BackgroundTransparency = 1
+	scrollFrame.BorderSizePixel = 0
+	scrollFrame.ScrollBarThickness = 6
+	scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+	scrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	scrollFrame.Parent = body
 
 	local grid = Instance.new("UIGridLayout")
-	grid.CellSize = UDim2.fromOffset(256, 110)
-	grid.CellPadding = UDim2.fromOffset(16, 16)
-	grid.Parent = body
+	grid.CellSize = MAGIC_CARD_SIZE
+	grid.CellPadding = MAGIC_CARD_PADDING
+	grid.Parent = scrollFrame
 
-	for _, classId in CLASS_ORDER do
-		buildClassCard(body, classId, onPick)
+	for _, typeId in MagicTypes.Order do
+		buildMagicTypeCard(scrollFrame, MagicTypes.Definitions[typeId], onPick)
 	end
+
+	local witchSlayerButton = Instance.new("TextButton")
+	witchSlayerButton.Size = UDim2.new(1, 0, 0, 40)
+	witchSlayerButton.Position = UDim2.new(0, 0, 1, -40)
+	witchSlayerButton.BackgroundColor3 = Color3.fromRGB(90, 40, 40)
+	witchSlayerButton.TextColor3 = Color3.new(1, 1, 1)
+	witchSlayerButton.Font = Enum.Font.GothamBold
+	witchSlayerButton.TextSize = 15
+	witchSlayerButton.Text = "No Magic — Witch Slayer"
+	witchSlayerButton.Parent = body
+
+	local witchSlayerCorner = Instance.new("UICorner")
+	witchSlayerCorner.CornerRadius = UDim.new(0, 6)
+	witchSlayerCorner.Parent = witchSlayerButton
+
+	witchSlayerButton.MouseButton1Click:Connect(function()
+		onPick("WitchSlayer")
+	end)
 
 	return panel
 end
@@ -304,7 +336,7 @@ function CharacterCreationController:Start()
 	backdrop.BackgroundTransparency = 0.35
 	backdrop.Parent = screenGui
 
-	-- Declared before assignment (not `local classPage = buildClassPage(...)`) because
+	-- Declared before assignment (not `local classPage = buildMagicGridPage(...)`) because
 	-- the appearance page's own "Next" button closure below needs to reference
 	-- `appearancePage` from inside its own initializing expression — in Lua, a local
 	-- only becomes visible to closures created *after* its declaration statement
@@ -313,7 +345,7 @@ function CharacterCreationController:Start()
 	local classPage: Frame
 	local appearancePage: Frame
 
-	classPage = buildClassPage(backdrop, function(classId: string)
+	classPage = buildMagicGridPage(backdrop, function(classId: string)
 		selectCharacterClassEvent:FireServer(classId)
 		screenGui.Enabled = false
 	end)

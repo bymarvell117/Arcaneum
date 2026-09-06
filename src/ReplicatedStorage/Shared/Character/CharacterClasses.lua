@@ -1,4 +1,4 @@
-export type CharacterClassId = "FireMage" | "IceMage" | "StormMage" | "WitchSlayer"
+export type CharacterClassId = "FireMage" | "IceMage" | "StormMage" | "EarthMage" | "WitchSlayer"
 
 export type CharacterClassDefinition = {
 	Id: CharacterClassId,
@@ -33,6 +33,13 @@ local CharacterClasses: { [string]: CharacterClassDefinition } = {
 		Description = "Wields Fulgur lightning magic. Fast, precise strikes.",
 		IsMage = true,
 		Word = "Fulgur",
+	},
+	EarthMage = {
+		Id = "EarthMage",
+		Name = "Earth Mage",
+		Description = "Wields Terra earth magic. Tanky, high area control.",
+		IsMage = true,
+		Word = "Terra",
 	},
 	WitchSlayer = {
 		Id = "WitchSlayer",

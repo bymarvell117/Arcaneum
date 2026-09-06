@@ -607,3 +607,59 @@ lever that already governs Amount and Ultimate Art.
 2. Open the Magic menu, edit a spell, and type **300** into the Power field — confirm the
    number is accepted (clamped to 20-1000) and the cast noticeably hits much harder (and costs
    proportionally more mana) than at 100%.
+
+## Beam Attack polish: cylinder shape, growable terrain craters
+
+The beam's visual `Part` is now `Enum.PartType.Cylinder` instead of a `Block`, oriented along
+its length with a 90° spin around Y layered onto the existing midpoint-centering `CFrame` math
+(a cylinder's long axis is local X, not Z).
+
+Terrain carving also changed shape: `TerrainDestructionService` needs noticeably less damage
+per stud of crater radius, and allows bigger craters overall. More importantly, a channeled
+beam now carves using its **total accumulated terrain damage for the session**, not just the
+current 0.1s tick's sliver — previously every tick re-carved the same tiny radius at
+(approximately) the same spot, so holding the beam against a wall never actually got anywhere.
+Now the crater visibly grows the longer you hold the beam on the same spot, which is what
+actually lets a sustained, powerful-enough beam punch all the way through a mountain instead of
+just pockmarking its surface.
+
+Cast-path diagnostics (`print`/`warn` in `SpellService`) were also added for every branch of
+`handleCastSpell`, `fireBlast`, and `tickBeam` — including every successful cast — so a cast
+that silently produces nothing shows up in the Studio console (Output/F9) even when mana is
+being spent successfully. The Amount-does-nothing bug itself is on hold for now; these are left
+in place in case it gets revisited.
+
+## Damage is now tied to mage level; Power is a pure amplifier
+
+Damage used to be a flat per-Word constant (`BaseDamage` on Ignis/Glacies/Fulgur/Terra). It's
+now `StatFormulas.SpellDamageForLevel(mageLevel) = 10 + mageLevel * 1.5`, so leveling up your
+mage skill makes *every* spell you already own hit harder, regardless of which element or
+spell type it is. Words now only differ in mana cost, cooldown, and projectile speed.
+
+Power (`ExplosionSize`) changes meaning to match: it's a direct multiplier on that level-based
+damage — 100% casts at your level's plain base damage, 1000% casts at 10x that — instead of the
+old softened `0.5 + x` factor, and it scales mana cost by the same multiplier. Power is now
+literally "how much do you want to amplify this cast, paid for in extra mana." New spells
+default to 100% Power (previously 50%) to match "unamplified" as the new baseline.
+
+## Character creation: the full "Choose a Magic" catalog
+
+The class-picker step (`CharacterCreationController.lua`) is now a scrollable grid of the full
+magic-type catalog (`Shared/Character/MagicTypes.lua`) — Acid, Ash, Crystal, Earth, Explosion,
+Fire, Glass, Gold, Ice, Ink, Iron, Light, Lightning, Magma, Paper, Plasma, Poison, Sand, Shadow,
+Snow, Water, Wind, Wood — instead of three plain buttons, matching the full-catalog reference.
+
+Only the types with a real `CharacterClass`/`SpellWord` behind them are actually pickable:
+**Fire** (Fire Mage / Ignis), **Ice** (Ice Mage / Glacies), **Lightning** (Storm Mage / Fulgur),
+and now **Earth** (a new Earth Mage class, wired to the previously-unused Terra word). Every
+other type shows its real theme color washed out with a "Soon" tag, same pattern as the
+spell-type picker's "Coming soon" rows. Witch Slayer (no magic at all) sits as its own button
+below the grid rather than inside it, since it isn't really a magic type.
+
+### Trying it out
+
+1. Start a fresh character — confirm the "Choose a Magic" screen shows the full colored grid,
+   with Fire/Ice/Lightning/Earth clickable and the rest dimmed with a "Soon" tag.
+2. Pick **Earth** — confirm you become an Earth Mage with a Terra-flavored starter spell in
+   slot Q, the same way Fire/Ice/Storm already worked.
+3. Confirm **Witch Slayer** still works as the separate button beneath the grid.
