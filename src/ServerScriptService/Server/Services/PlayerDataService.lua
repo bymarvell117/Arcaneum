@@ -165,7 +165,7 @@ function PlayerDataService:AddCurrency(player: Player, currency: "Silver" | "Gol
 	if not data then
 		return
 	end
-	data[currency] += amount
+	data[currency] = math.max(0, data[currency] + amount)
 end
 
 function PlayerDataService:SetCurrency(player: Player, currency: "Silver" | "Gold", amount: number)

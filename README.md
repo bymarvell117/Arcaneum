@@ -183,3 +183,43 @@ which need mage level 3/5).
   click **Set**. Setting a level directly sets the underlying XP total to match that level's
   threshold (`StatFormulas.XPForLevel`), so mage level changes also matter for spell level
   gates immediately.
+
+## Law & bounty system (Phase 3)
+
+**`Server/Services/WantedService.lua`** tracks a 0-5 "wanted level" (star rating) per player,
+GTA/Cyberpunk-style, that decays slowly over time if you stay out of trouble. It's the
+consequence layer on top of destruction and combat:
+
+- **Property damage** — any hit that breaks a `Destructible` part (via
+  `DestructionService`) fines the player (Silver for a normal break, a much bigger Gold fine
+  plus a 2-star jump if it triggers a whole-structure collapse) and adds wanted level.
+- **Civilian harm** — hitting a `Humanoid` tagged `"Civilian"` adds wanted level (more if the
+  hit kills them). Hitting the training dummy does **not** count — it's tagged as a practice
+  target, not a civilian.
+- **`Server/Services/TestCivilianService.lua`** spawns a passive test civilian NPC (green,
+  built the same way as the training dummy via the new shared
+  `Shared/NPC/BlockyHumanoid.lua` builder) near the test house, so there's something to test
+  the civilian-harm path against.
+
+**`Server/Services/LawEnforcerService.lua`** is the "the law responds" half: the moment a
+player's wanted level goes from 0 to something, an enforcer NPC spawns near them and homes in
+to attack — its health and damage scale up with the player's star level, so a 4-5 star player
+faces a genuinely tougher enforcer than a 1-star one. The enforcer despawns when defeated or
+when the player's wanted level decays back to 0. Its "AI" is intentionally minimal for now (it
+glides straight at the player with no obstacle avoidance) — a real pathfinding-based enemy AI
+is a separate future system, this just proves the difficulty-scaling loop works.
+
+A 5-star indicator (`Client/Controllers/WantedController.lua`) in the top-right corner fills
+in gold stars as your wanted level rises.
+
+### Trying it out
+
+1. Hit any part of the test house (wall, window, roof) — any `Destructible` break fines you
+   and nudges your wanted level up a little.
+2. Use the **P** debug-damage key (or a real spell) on the green **TestCivilian** NPC near the
+   house — this adds much more wanted level than property damage, and killing it adds even
+   more.
+3. Watch the star indicator (top-right) fill in, and a blue enforcer block should appear and
+   start closing in on you, hitting you on contact.
+4. Stop committing crimes and wait — wanted level decays automatically over time, and the
+   enforcer disappears once it hits 0.

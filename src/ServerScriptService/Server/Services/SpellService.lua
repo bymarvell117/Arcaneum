@@ -1,4 +1,5 @@
 local Players = game:GetService("Players")
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 local Debris = game:GetService("Debris")
@@ -8,6 +9,7 @@ local SpellBuilder = require(ReplicatedStorage.Shared.Spells.SpellBuilder)
 
 local PlayerDataService = require(ServerScriptService.Server.Services.PlayerDataService)
 local DestructionService = require(ServerScriptService.Server.Services.DestructionService)
+local WantedService = require(ServerScriptService.Server.Services.WantedService)
 
 local MAGE_XP_PER_MANA_SPENT = 0.5
 local COMBAT_XP_PER_HIT = 4
@@ -52,8 +54,14 @@ local function spawnProjectile(origin: Vector3, direction: Vector3, resolved: Sp
 		if humanoid then
 			humanoid:TakeDamage(resolved.DamagePerProjectile)
 			PlayerDataService:AddXP(caster, "Combat", COMBAT_XP_PER_HIT)
+			if CollectionService:HasTag(hit.Parent, "Civilian") then
+				WantedService:ReportCivilianDamage(caster, humanoid.Health <= 0)
+			end
 		else
-			DestructionService:Damage(hit, resolved.DamagePerProjectile)
+			local result = DestructionService:Damage(hit, resolved.DamagePerProjectile)
+			if result and result.Broke then
+				WantedService:ReportPropertyDamage(caster, result.StructureDestroyed)
+			end
 		end
 
 		hitConnection:Disconnect()

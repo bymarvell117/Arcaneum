@@ -56,17 +56,22 @@ function DestructionService:DestroyStructure(structureId: string, cause: BasePar
 	end
 end
 
-function DestructionService:Damage(part: Instance, amount: number)
+export type DamageResult = {
+	Broke: boolean,
+	StructureDestroyed: boolean,
+}
+
+function DestructionService:Damage(part: Instance, amount: number): DamageResult?
 	if not part:IsA("BasePart") or not CollectionService:HasTag(part, DESTRUCTIBLE_TAG) then
-		return
+		return nil
 	end
 	if isDestroyed(part) then
-		return
+		return { Broke = false, StructureDestroyed = false }
 	end
 
 	local health = part:GetAttribute("Health")
 	if typeof(health) ~= "number" then
-		return
+		return nil
 	end
 
 	local overkillMultiplier = part:GetAttribute("ShatterOverkillMultiplier") or DEFAULT_OVERKILL_MULTIPLIER
@@ -79,10 +84,13 @@ function DestructionService:Damage(part: Instance, amount: number)
 		local structureId = part:GetAttribute("StructureId")
 		if isOverkill and structureId then
 			self:DestroyStructure(structureId, part)
-		else
-			breakPart(part)
+			return { Broke = true, StructureDestroyed = true }
 		end
+		breakPart(part)
+		return { Broke = true, StructureDestroyed = false }
 	end
+
+	return { Broke = false, StructureDestroyed = false }
 end
 
 return DestructionService
