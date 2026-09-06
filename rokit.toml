@@ -1,4 +1,4 @@
 # Rokit toolchain manifest.
 # Run `rokit install` from the repo root to install these exact tool versions.
 [tools]
-rojo = "rojo-rbx/rojo@7.4.4"
+rojo = "rojo-rbx/rojo@7.7.0"
