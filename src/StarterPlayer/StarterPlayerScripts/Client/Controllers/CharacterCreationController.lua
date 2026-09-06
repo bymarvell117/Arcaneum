@@ -131,7 +131,7 @@ local function buildPreviewViewport(parent: Instance): (ViewportFrame, (Color3, 
 	corner.CornerRadius = UDim.new(0, 8)
 	corner.Parent = viewportFrame
 
-	local previewModel = Players:CreateHumanoidModelFromDescription(Instance.new("HumanoidDescription"), Enum.HumanoidRigType.R15)
+	local previewModel = Players:CreateHumanoidModelFromDescription(Instance.new("HumanoidDescription"), Enum.AssetTypeVerification.Default)
 	for _, descendant in previewModel:GetDescendants() do
 		if descendant:IsA("BasePart") then
 			descendant.Anchored = true
