@@ -8,8 +8,6 @@ local PlayerDataService = require(ServerScriptService.Server.Services.PlayerData
 
 local DEFAULT_WALK_SPEED = 16
 local DEFAULT_JUMP_POWER = 50
-local DATA_WAIT_ATTEMPTS = 50
-local DATA_WAIT_INTERVAL = 0.1
 
 local CharacterCreationService = {}
 
@@ -31,21 +29,6 @@ local function unfreezeCharacter(character: Model)
 		humanoid.WalkSpeed = DEFAULT_WALK_SPEED
 		humanoid.JumpPower = DEFAULT_JUMP_POWER
 	end
-end
-
--- PlayerDataService loads each player's profile asynchronously (a DataStore call) on
--- its own independent PlayerAdded connection, so it may not be populated yet the
--- instant our own PlayerAdded/CharacterAdded handlers run. Poll briefly instead of
--- assuming an ordering between two unrelated Loader-spawned connections.
-local function waitForData(player: Player): PlayerDataService.PlayerData?
-	for _ = 1, DATA_WAIT_ATTEMPTS do
-		local data = PlayerDataService:GetData(player)
-		if data then
-			return data
-		end
-		task.wait(DATA_WAIT_INTERVAL)
-	end
-	return nil
 end
 
 local function handleSelectClass(player: Player, classId: unknown)
@@ -87,7 +70,7 @@ function CharacterCreationService:Start()
 	-- learns it should show the picker. Invoking pulls the current state on demand,
 	-- whenever the client is actually ready to receive it.
 	getCharacterClassFunction.OnServerInvoke = function(player: Player)
-		local data = waitForData(player)
+		local data = PlayerDataService:WaitForData(player)
 		return data and data.CharacterClass or nil
 	end
 
@@ -97,7 +80,7 @@ function CharacterCreationService:Start()
 			-- this player already has a class from a previous session.
 			freezeCharacter(character)
 			task.spawn(function()
-				local data = waitForData(player)
+				local data = PlayerDataService:WaitForData(player)
 				if data and data.CharacterClass then
 					unfreezeCharacter(character)
 				end

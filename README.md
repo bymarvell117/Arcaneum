@@ -382,6 +382,23 @@ Your choice is saved permanently (`PlayerData.CharacterClass`, part of the same 
 profile as currency/XP) — you only see the picker once. Picking a class immediately unfreezes
 your character.
 
+### Appearance customization
+
+Before the class picker, a **Customize Your Character** screen appears with a live 3D preview
+(a `ViewportFrame` showing a real R15 rig built via
+`Players:CreateHumanoidModelFromDescription`) and three color palettes — Skin, Shirt, Pants —
+matching the reference World of Magic character creator's layout. This is intentionally
+**color-only** for now: no hair styles, face options, or clothing textures, because those need
+real Roblox catalog accessory/asset IDs that can't be verified without live catalog access.
+Once real character art direction exists, that's where accessory options would slot in.
+
+Picked colors save permanently too (`PlayerData.SkinColor/ShirtColor/PantsColor`, stored as
+plain `{R,G,B}` tables since DataStores can't hold `Color3` values directly — see
+`Shared/Util/ColorSerialization.lua`) and are re-applied by `CharacterAppearanceService` on
+every respawn, so you only customize once. `SetAppearance` is server-validated against the
+same palette the client picked from (`Shared/Character/AppearancePalette.lua`) — an
+arbitrary/off-palette color is silently rejected.
+
 ### Two known races, and how they're handled
 
 **Server-side**: `PlayerDataService` loads each player's profile asynchronously (a DataStore
@@ -407,10 +424,11 @@ already known to be connected (confirming a fresh pick, or an admin-panel class 
 
 ### Trying it out
 
-1. Join and confirm you spawn frozen with the **Choose Your Path** screen up, showing a plain
-   gray R15 body underneath.
-2. Pick a Mage class — you should unfreeze immediately and still be able to cast spells (1/2/3
-   + click) exactly as before.
+1. Join and confirm you spawn frozen with the **Customize Your Character** screen up first —
+   try changing the skin/shirt/pants swatches and watch the 3D preview update live.
+2. Click **Next** — the **Choose Your Path** screen appears. Pick a Mage class — you should
+   unfreeze immediately, see your chosen colors applied to your actual character, and still be
+   able to cast spells (1/2/3 + click) exactly as before.
 3. Open the admin panel (**F6**) and click **"Reset Class (re-pick path)"** — you'll freeze
    again and the picker reappears. Pick **Witch Slayer** this time — confirm the spell hotbar
    and mana bar don't appear, and pressing 1/2/3 + click does nothing (try the debug **P** key

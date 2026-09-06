@@ -4,10 +4,14 @@ local DataStoreService = game:GetService("DataStoreService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StatFormulas = require(ReplicatedStorage.Shared.Combat.StatFormulas)
 local Net = require(ReplicatedStorage.Shared.Framework.Net)
+local ColorSerialization = require(ReplicatedStorage.Shared.Util.ColorSerialization)
 
 local DATASTORE_NAME = "ArcaneumPlayerData_v1"
 local MANA_REGEN_INTERVAL = 2
 local MANA_REGEN_FRACTION = 0.05
+local DATA_WAIT_ATTEMPTS = 50
+local DATA_WAIT_INTERVAL = 0.1
+local DEFAULT_BODY_COLOR = Color3.fromRGB(163, 162, 165)
 
 export type PlayerData = {
 	Silver: number,
@@ -17,6 +21,9 @@ export type PlayerData = {
 	CharacterXP: number,
 	Mana: number,
 	CharacterClass: string?,
+	SkinColor: ColorSerialization.SerializedColor,
+	ShirtColor: ColorSerialization.SerializedColor,
+	PantsColor: ColorSerialization.SerializedColor,
 }
 
 local PlayerDataService = {}
@@ -36,6 +43,9 @@ local function defaultData(): PlayerData
 		CharacterXP = 0,
 		Mana = StatFormulas.MaxManaForLevel(1),
 		CharacterClass = nil,
+		SkinColor = ColorSerialization.ToTable(DEFAULT_BODY_COLOR),
+		ShirtColor = ColorSerialization.ToTable(DEFAULT_BODY_COLOR),
+		PantsColor = ColorSerialization.ToTable(DEFAULT_BODY_COLOR),
 	}
 end
 
@@ -125,6 +135,21 @@ function PlayerDataService:GetData(player: Player): PlayerData?
 	return profiles[player]
 end
 
+-- PlayerDataService loads each player's profile asynchronously (a DataStore call),
+-- so it may not be populated the instant another Loader-spawned service's own
+-- PlayerAdded/CharacterAdded connections run. Poll briefly rather than assuming an
+-- ordering between two unrelated connections on the same signal.
+function PlayerDataService:WaitForData(player: Player): PlayerData?
+	for _ = 1, DATA_WAIT_ATTEMPTS do
+		local data = profiles[player]
+		if data then
+			return data
+		end
+		task.wait(DATA_WAIT_INTERVAL)
+	end
+	return nil
+end
+
 function PlayerDataService:TrySpendMana(player: Player, amount: number): boolean
 	local data = profiles[player]
 	if not data or data.Mana < amount then
@@ -196,6 +221,26 @@ function PlayerDataService:ClearCharacterClass(player: Player)
 		return
 	end
 	data.CharacterClass = nil
+end
+
+function PlayerDataService:SetAppearance(player: Player, skin: Color3, shirt: Color3, pants: Color3)
+	local data = profiles[player]
+	if not data then
+		return
+	end
+	data.SkinColor = ColorSerialization.ToTable(skin)
+	data.ShirtColor = ColorSerialization.ToTable(shirt)
+	data.PantsColor = ColorSerialization.ToTable(pants)
+end
+
+function PlayerDataService:GetAppearanceColors(player: Player): (Color3, Color3, Color3)
+	local data = profiles[player]
+	if not data then
+		return DEFAULT_BODY_COLOR, DEFAULT_BODY_COLOR, DEFAULT_BODY_COLOR
+	end
+	return ColorSerialization.FromTable(data.SkinColor),
+		ColorSerialization.FromTable(data.ShirtColor),
+		ColorSerialization.FromTable(data.PantsColor)
 end
 
 function PlayerDataService:RefillMana(player: Player)
