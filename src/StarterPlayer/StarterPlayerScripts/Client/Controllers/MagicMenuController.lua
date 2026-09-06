@@ -17,6 +17,8 @@ local AMOUNT_UNLOCK_LEVEL = 30
 local ULTIMATE_ART_UNLOCK_LEVEL = 100
 local DEFAULT_DURATION = 2
 local DEFAULT_THICKNESS = 0.5
+local EXPLOSION_MIN_PERCENT = 20
+local EXPLOSION_MAX_PERCENT = 1000
 
 local player = Players.LocalPlayer
 local characterClassAssignedEvent = Net.GetEvent("CharacterClassAssigned")
@@ -323,6 +325,57 @@ local function buildOptionRow(
 	end
 end
 
+-- A free-typed number field instead of preset buttons — used for Power, which is
+-- meant to go far beyond the other sliders' 100% ceiling so genuinely "super
+-- powerful" spells are possible (mana cost scales right along with it, so it's
+-- self-balancing rather than needing an artificial cap).
+local function buildNumberRow(
+	layoutOrder: number,
+	labelText: string,
+	currentPercent: number,
+	minPercent: number,
+	maxPercent: number,
+	onApply: (number) -> ()
+)
+	local row = makeRow(body, layoutOrder, 56)
+	makeLabel(row, UDim2.new(0.35, 0, 1, 0), UDim2.fromOffset(10, 0), labelText, 14)
+
+	local inputBox = Instance.new("TextBox")
+	inputBox.Size = UDim2.fromOffset(90, 32)
+	inputBox.Position = UDim2.new(0.35, 0, 0.5, -16)
+	inputBox.Text = tostring(math.floor(currentPercent + 0.5))
+	inputBox.Font = Enum.Font.GothamBold
+	inputBox.TextSize = 14
+	inputBox.TextColor3 = Color3.new(1, 1, 1)
+	inputBox.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+	inputBox.ClearTextOnFocus = false
+	inputBox.Parent = row
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 6)
+	corner.Parent = inputBox
+
+	local suffixLabel = makeLabel(
+		row,
+		UDim2.fromOffset(160, 32),
+		UDim2.new(0.35, 96, 0.5, -16),
+		("% (%d-%d)"):format(minPercent, maxPercent),
+		13
+	)
+	suffixLabel.TextColor3 = Color3.fromRGB(170, 170, 170)
+
+	inputBox.FocusLost:Connect(function()
+		local parsed = tonumber(inputBox.Text)
+		if not parsed then
+			inputBox.Text = tostring(math.floor(currentPercent + 0.5))
+			return
+		end
+		local clamped = math.clamp(parsed, minPercent, maxPercent)
+		onApply(clamped / 100)
+		render()
+	end)
+end
+
 local function renderEditor()
 	local title = makeLabel(body, UDim2.new(1, 0, 0, 26), nil, editingIsNew and "Create your spell" or "Edit your spell", 18)
 	title.Font = Enum.Font.GothamBold
@@ -359,11 +412,8 @@ local function renderEditor()
 	end
 
 	local powerLabel = pendingSpell.TypeId == "BeamAttack" and "Power" or "Explosion Size"
-	buildOptionRow(3, powerLabel, PERCENT_OPTIONS, function(v)
-		return math.floor(v * 100) .. "%"
-	end, pendingSpell.ExplosionSize, false, nil, function(value)
+	buildNumberRow(3, powerLabel, pendingSpell.ExplosionSize * 100, EXPLOSION_MIN_PERCENT, EXPLOSION_MAX_PERCENT, function(value)
 		pendingSpell.ExplosionSize = value
-		render()
 	end)
 
 	local ultimateRow = makeRow(body, 4, 56)

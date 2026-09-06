@@ -15,6 +15,8 @@ local MIN_AMOUNT = 1
 local MAX_AMOUNT = 5
 local MIN_SIZE_FRACTION = 0.2
 local MAX_SIZE_FRACTION = 1
+local MIN_EXPLOSION_FRACTION = 0.2
+local MAX_EXPLOSION_FRACTION = 10
 local MIN_DURATION = 1
 local MAX_DURATION = 6
 
@@ -121,7 +123,7 @@ local function handleSaveSpell(player: Player, payload: unknown)
 		TypeId = typeId,
 		Amount = amount,
 		BlastSize = math.clamp(blastSize, MIN_SIZE_FRACTION, MAX_SIZE_FRACTION),
-		ExplosionSize = math.clamp(explosionSize, MIN_SIZE_FRACTION, MAX_SIZE_FRACTION),
+		ExplosionSize = math.clamp(explosionSize, MIN_EXPLOSION_FRACTION, MAX_EXPLOSION_FRACTION),
 		UltimateArt = command.UltimateArt == true and mageLevel >= ULTIMATE_ART_UNLOCK_LEVEL,
 		CastingStyle = isValidCastingStyle(command.CastingStyle) and command.CastingStyle or CastingStyles[1].Id,
 		Name = sanitizeName(command.Name, typeDef.Name),

@@ -27,8 +27,15 @@ local HAND_OFFSETS = {
 	BothHands = Vector3.new(0, 0, -2),
 }
 
+local FAIL_MESSAGE_DURATION = 1
+local FAIL_REASON_TEXT = {
+	NotEnoughMana = "Not enough mana!",
+	OnCooldown = "Still on cooldown!",
+}
+
 local player = Players.LocalPlayer
 local castSpellEvent = Net.GetEvent("CastSpell")
+local castFailedEvent = Net.GetEvent("CastFailed")
 local characterClassAssignedEvent = Net.GetEvent("CharacterClassAssigned")
 local getCharacterClassFunction = Net.GetFunction("GetCharacterClass")
 local spellsUpdatedEvent = Net.GetEvent("SpellsUpdated")
@@ -47,6 +54,7 @@ local currentMana = 0
 local currentMaxMana = 1
 local beamMeterFrame: Frame? = nil
 local beamMeterFill: Frame? = nil
+local failMessageLabel: TextLabel? = nil
 
 local function getMouseHitPosition(): Vector3?
 	local mouse = player:GetMouse()
@@ -149,6 +157,34 @@ local function buildBeamMeter(screenGui: ScreenGui)
 	fill.BorderSizePixel = 0
 	fill.Parent = background
 	beamMeterFill = fill
+end
+
+local function buildFailMessage(screenGui: ScreenGui)
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromOffset(260, 24)
+	label.Position = UDim2.new(0.5, -130, 1, -130)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.GothamBold
+	label.TextSize = 16
+	label.TextColor3 = Color3.fromRGB(255, 90, 90)
+	label.TextTransparency = 1
+	label.Text = ""
+	label.Parent = screenGui
+	failMessageLabel = label
+end
+
+local function showFailMessage(reason: string)
+	if not failMessageLabel then
+		return
+	end
+	failMessageLabel.Text = FAIL_REASON_TEXT[reason] or "Can't cast that right now."
+	failMessageLabel.TextTransparency = 0
+	local tween = TweenService:Create(
+		failMessageLabel,
+		TweenInfo.new(FAIL_MESSAGE_DURATION, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+		{ TextTransparency = 1 }
+	)
+	tween:Play()
 end
 
 local function updateBeamMeterFill()
@@ -266,12 +302,15 @@ end
 function SpellController:Start()
 	local hotbarGui = buildHotbar()
 	buildBeamMeter(hotbarGui)
+	buildFailMessage(hotbarGui)
 
 	manaUpdatedEvent.OnClientEvent:Connect(function(mana: number, maxMana: number)
 		currentMana = mana
 		currentMaxMana = maxMana
 		updateBeamMeterFill()
 	end)
+
+	castFailedEvent.OnClientEvent:Connect(showFailMessage)
 
 	characterClassAssignedEvent.OnClientEvent:Connect(function(classId: string?)
 		isWitchSlayer = classId == "WitchSlayer"

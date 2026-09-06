@@ -27,6 +27,7 @@ local BEAM_MAX_TICK_DT = 0.5
 local SpellService = {}
 
 local castSpellEvent = Net.GetEvent("CastSpell")
+local castFailedEvent = Net.GetEvent("CastFailed")
 local lastCastAt: { [Player]: { [string]: number } } = {}
 
 type BeamSession = { Part: BasePart, StartedAt: number, LastTickAt: number }
@@ -98,10 +99,12 @@ local function fireBlast(player: Player, resolved: SpellBuilder.ResolvedSpell, s
 	local now = os.clock()
 	local playerCooldowns = lastCastAt[player]
 	if playerCooldowns and playerCooldowns[slot] and now - playerCooldowns[slot] < resolved.Cooldown then
+		castFailedEvent:FireClient(player, "OnCooldown")
 		return
 	end
 
 	if not PlayerDataService:TrySpendMana(player, resolved.ManaCostPerCast) then
+		castFailedEvent:FireClient(player, "NotEnoughMana")
 		return
 	end
 
@@ -162,6 +165,13 @@ local function tickBeam(player: Player, resolved: SpellBuilder.ResolvedSpell, sl
 	if not session then
 		local playerCooldowns = lastCastAt[player]
 		if playerCooldowns and playerCooldowns[slot] and now - playerCooldowns[slot] < resolved.Cooldown then
+			castFailedEvent:FireClient(player, "OnCooldown")
+			return
+		end
+
+		local data = PlayerDataService:GetData(player)
+		if not data or data.Mana <= 0 then
+			castFailedEvent:FireClient(player, "NotEnoughMana")
 			return
 		end
 

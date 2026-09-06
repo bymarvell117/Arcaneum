@@ -4,7 +4,7 @@ export type CustomSpellData = {
 	TypeId: string,
 	Amount: number,
 	BlastSize: number, -- 0.2 - 1.0 (20% - 100%)
-	ExplosionSize: number, -- 0.2 - 1.0 (20% - 100%)
+	ExplosionSize: number, -- 0.2 - 10.0 (20% - 1000%) — the "power" number, typed in directly
 	UltimateArt: boolean,
 	CastingStyle: string,
 	Name: string,
@@ -31,6 +31,13 @@ local MIN_AMOUNT = 1
 local MAX_AMOUNT = 5
 local MIN_SIZE_FRACTION = 0.2
 local MAX_SIZE_FRACTION = 1.0
+-- Power (ExplosionSize) gets a much wider ceiling than the other sliders — it's the
+-- one dial meant for building deliberately "super powerful" spells, entered as a
+-- typed number rather than picked from a handful of preset buttons. Mana cost scales
+-- with it directly, so an extreme value is naturally gated by how much mana you
+-- actually have, not by an artificial UI cap.
+local MIN_EXPLOSION_FRACTION = 0.2
+local MAX_EXPLOSION_FRACTION = 10.0
 local ULTIMATE_ART_MULTIPLIER = 2
 local MIN_DURATION = 1
 local MAX_DURATION = 6
@@ -45,6 +52,10 @@ end
 
 local function clampSizeFraction(value: number): number
 	return math.clamp(value, MIN_SIZE_FRACTION, MAX_SIZE_FRACTION)
+end
+
+local function clampExplosionFraction(value: number): number
+	return math.clamp(value, MIN_EXPLOSION_FRACTION, MAX_EXPLOSION_FRACTION)
 end
 
 local function clampDuration(value: number): number
@@ -63,7 +74,7 @@ function SpellBuilder.Resolve(wordId: string, spell: CustomSpellData): ResolvedS
 
 	local amount = clampAmount(spell.Amount)
 	local blastSize = clampSizeFraction(spell.BlastSize)
-	local explosionSize = clampSizeFraction(spell.ExplosionSize)
+	local explosionSize = clampExplosionFraction(spell.ExplosionSize)
 	local ultimateMultiplier = spell.UltimateArt and ULTIMATE_ART_MULTIPLIER or 1
 
 	local explosionFactor = 0.5 + explosionSize

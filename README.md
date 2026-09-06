@@ -576,3 +576,34 @@ editor parameters and a live power meter:
 - **No "Power" option showing for Beam Attack**: it was there, just still labeled "Explosion
   Size" (Blast Attack's terminology) even for a beam, so it didn't read as the power control.
   Beam Attack's row 3 is now labeled "Power" instead.
+
+## Cast failures are never silent, and Power is now a typed number
+
+Two more rounds of testing surfaced a real usability gap and a real feature request:
+
+**"Nothing happens" now always says why.** Increasing Amount also raises mana cost (it's
+multiplied straight into `ManaCostPerCast`), and a cast that fails because you can't afford it
+or is still on cooldown used to just... do nothing, with zero on-screen feedback — easy to
+mistake for a bug. `SpellService` now fires a `CastFailed` event (`"NotEnoughMana"` or
+`"OnCooldown"`) whenever a cast (or the start of a beam channel) is rejected, and
+`SpellController` shows a brief red message near the hotbar so a failed cast is never
+ambiguous with a working one.
+
+**Power is now a typed number, not a 20%-100% button row.** `Shared/Spells/SpellBuilder.lua`
+gives `ExplosionSize` — the "Power" / "Explosion Size" field — its own much wider range (20% to
+**1000%**) separate from Blast Size/Thickness, which stay in the original 20%-100% band.
+`MagicMenuController`'s Power row is a text box you type a percentage into
+(`Shared/Spells/SpellBuilder`'s `clampExplosionFraction` and `SpellSlotService`'s save-time
+validation both enforce the same 20-1000 range regardless of what the client sends). There's no
+separate balance cap beyond that ceiling because mana cost scales directly with Power — a
+"super powerful" spell is naturally gated by having enough mana to actually cast it, the same
+lever that already governs Amount and Ultimate Art.
+
+### Trying it out
+
+1. Cast a spell with just enough mana to afford exactly one cast, then try casting again
+   immediately — confirm you see **"Not enough mana!"** or **"Still on cooldown!"** near the
+   hotbar instead of silence.
+2. Open the Magic menu, edit a spell, and type **300** into the Power field — confirm the
+   number is accepted (clamped to 20-1000) and the cast noticeably hits much harder (and costs
+   proportionally more mana) than at 100%.
