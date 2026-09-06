@@ -143,8 +143,11 @@ local function buildPreviewViewport(parent: Instance): (ViewportFrame, (Color3, 
 	camera.Parent = viewportFrame
 	viewportFrame.CurrentCamera = camera
 
+	-- Framing distance from height (size.Y), not depth (size.Z) — a humanoid is only
+	-- ~1-2 studs deep front-to-back, so using that put the camera far too close and
+	-- clipped through the model.
 	local center, size = previewModel:GetBoundingBox()
-	camera.CFrame = CFrame.new(center.Position + Vector3.new(0, 0, size.Z + 5), center.Position)
+	camera.CFrame = CFrame.new(center.Position + Vector3.new(0, 0, size.Y + 3), center.Position)
 
 	local humanoid = previewModel:WaitForChild("Humanoid") :: Humanoid
 
@@ -301,13 +304,22 @@ function CharacterCreationController:Start()
 	backdrop.BackgroundTransparency = 0.35
 	backdrop.Parent = screenGui
 
-	local classPage = buildClassPage(backdrop, function(classId: string)
+	-- Declared before assignment (not `local classPage = buildClassPage(...)`) because
+	-- the appearance page's own "Next" button closure below needs to reference
+	-- `appearancePage` from inside its own initializing expression — in Lua, a local
+	-- only becomes visible to closures created *after* its declaration statement
+	-- finishes, so referencing it from within that same statement would silently
+	-- resolve to an unrelated global (nil) instead of erroring loudly.
+	local classPage: Frame
+	local appearancePage: Frame
+
+	classPage = buildClassPage(backdrop, function(classId: string)
 		selectCharacterClassEvent:FireServer(classId)
 		screenGui.Enabled = false
 	end)
 	classPage.Visible = false
 
-	local appearancePage = buildAppearancePage(backdrop, function(skin: Color3, shirt: Color3, pants: Color3)
+	appearancePage = buildAppearancePage(backdrop, function(skin: Color3, shirt: Color3, pants: Color3)
 		setAppearanceEvent:FireServer({
 			Skin = { R = skin.R, G = skin.G, B = skin.B },
 			Shirt = { R = shirt.R, G = shirt.G, B = shirt.B },
