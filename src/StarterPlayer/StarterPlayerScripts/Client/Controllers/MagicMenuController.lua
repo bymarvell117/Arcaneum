@@ -250,7 +250,7 @@ local function renderTypePicker()
 					TypeId = typeId,
 					Amount = 1,
 					BlastSize = 0.5,
-					ExplosionSize = 0.5,
+					ExplosionSize = 1.0,
 					UltimateArt = false,
 					CastingStyle = CastingStyles[1].Id,
 					Name = definition.Name,

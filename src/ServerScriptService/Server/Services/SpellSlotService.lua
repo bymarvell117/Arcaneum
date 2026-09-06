@@ -71,7 +71,7 @@ function SpellSlotService:CreateDefaultSpell(player: Player, word: string)
 		TypeId = "BlastAttack",
 		Amount = 1,
 		BlastSize = 0.5,
-		ExplosionSize = 0.5,
+		ExplosionSize = 1.0,
 		Duration = MIN_DURATION,
 		Thickness = 0.5,
 		UltimateArt = false,

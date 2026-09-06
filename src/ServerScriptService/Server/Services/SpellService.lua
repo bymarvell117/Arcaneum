@@ -321,7 +321,7 @@ local function handleCastSpell(player: Player, payload: unknown)
 		return
 	end
 
-	local resolved = SpellBuilder.Resolve(word, spellData)
+	local resolved = SpellBuilder.Resolve(word, spellData, mageLevel)
 	if not resolved then
 		warn(("[SpellService] %s's spell in slot %s failed to resolve (unknown Word %s)"):format(player.Name, slot, word))
 		return
