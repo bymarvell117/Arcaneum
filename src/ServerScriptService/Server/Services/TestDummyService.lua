@@ -4,6 +4,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 
 local BlockyHumanoid = require(ReplicatedStorage.Shared.NPC.BlockyHumanoid)
 local PlayerDataService = require(ServerScriptService.Server.Services.PlayerDataService)
+local QuestService = require(ServerScriptService.Server.Services.QuestService)
 
 local RESPAWN_DELAY = 4
 local DUMMY_MAX_HEALTH = 60
@@ -29,6 +30,7 @@ local function buildDummy(): Model
 			if killer then
 				PlayerDataService:AddCurrency(killer, "Silver", SILVER_REWARD)
 				PlayerDataService:AddXP(killer, "Character", CHARACTER_XP_REWARD)
+				QuestService:ReportDummyDefeated(killer)
 			end
 		end
 

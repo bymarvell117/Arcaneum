@@ -41,7 +41,7 @@ local function handleDebugDealDamage(player: Player, target: unknown, hitPositio
 		end
 	else
 		local result = DestructionService:Damage(target, DEBUG_DAMAGE)
-		if result and result.Broke then
+		if result and result.Broke and target:GetAttribute("OwnerId") ~= player.UserId then
 			WantedService:ReportPropertyDamage(player, result.StructureDestroyed)
 		end
 	end

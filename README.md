@@ -294,3 +294,63 @@ Phase: Characters & Cosmetics and Phase: Housing land.
 2. Walk to the wooden kiosk near the house, hold **E**, and try both conversion buttons —
    watch Silver and Gold trade at the 10:1 rate. Try converting more Gold than you have; nothing
    should happen (the server silently rejects it).
+
+## Quests & campaign (Phase 5)
+
+Both share one system (`Shared/Quests/QuestDefinitions.lua` + `Server/Services/QuestService.lua`)
+since a story chapter and a side quest are really the same shape (an objective, a target count,
+a reward) — they're just gated differently:
+
+- **Side quests** need to be accepted. `Server/Services/QuestGiverService.lua` spawns a yellow
+  glowing marker near the house — hold **E** ("Accept Quest: Pest Control") to accept
+  **Pest Control** (defeat 3 training dummies). Progress is tracked automatically as you fight;
+  finishing grants Silver + Character XP and clears the slot so you can accept it again.
+- **Story quests** run automatically in the background, one at a time, in a fixed order — no
+  accepting needed. You start on **Chapter 1: The Awakening** (reach Mage Level 2); finishing it
+  unlocks **Chapter 2: Trial by Combat** (defeat 5 dummies) automatically. This is the scaffold
+  for the main campaign — actual story content (more chapters, real objectives, narrative text)
+  gets written into `QuestDefinitions.lua` later without needing new systems code.
+- `Client/Controllers/QuestController.lua` shows both (when active) just under the currency HUD,
+  top-left: `Story: Chapter 1: The Awakening (1/2)` and `Quest: Pest Control (0/3)`.
+
+Known limitation: quest/chapter progress lives in server memory only (not saved to the
+DataStore yet like currency/XP are) — it resets if the server restarts. Worth fixing in the same
+pass where we do a broader save-data review.
+
+### Trying it out
+
+1. Walk to the glowing yellow orb near the house and hold **E** to accept Pest Control.
+2. Defeat training dummies — watch the quest line's progress count up, and see it disappear
+   with a reward once you hit 3/3.
+3. Separately, raise your Mage Level (via the admin panel, F6, is the fastest way to test this)
+   to 2 — Chapter 1 should complete on its own within a few seconds and Chapter 2 should appear.
+
+## Dynamic housing (Phase 5)
+
+`Server/Services/HousingService.lua` has 2 unclaimed plots west of the test house, each marked
+by a glowing green pole. Hold **E** ("Claim Plot") and a personal house (built with the same
+`Shared/Buildings/HouseBuilder.lua` used by the test house) spawns there, owned by you.
+
+- **Nobody can destroy it for free**: anyone (including the owner) can still break it apart —
+  destruction rules don't change based on ownership — but the **owner damaging their own house
+  no longer triggers a fine or wanted level** (`SpellService`/`DebugService` check the part's
+  `OwnerId` attribute before reporting to `WantedService`), matching "you can practice on your
+  own house without the law showing up."
+- **It rebuilds itself**: once every part of the house is broken, `HousingService` waits 30
+  seconds and rebuilds a fresh copy at the same plot for the same owner — matching "the terrain
+  resets that region" from the original design, simplified to a timer for now.
+- **No stealing** isn't really testable yet since there's no shared inventory/storage inside the
+  house — that's future work once an inventory system exists.
+
+Known limitations: only 2 fixed-layout starter houses exist (no real building/placement tool
+for choosing your own layout yet — that's a much bigger feature), and plot ownership isn't
+saved to the DataStore either, so it resets on server restart just like quest progress.
+
+### Trying it out
+
+1. Walk to one of the green poles west of the house and hold **E** to claim it — a house appears
+   and the pole disappears.
+2. Break the house apart (spells, or the **P** debug key) — confirm your wanted stars/fines
+   *don't* increase while you're breaking your own house.
+3. Have it fully collapse, then wait ~30 seconds — a fresh copy should rebuild itself at the
+   same spot.

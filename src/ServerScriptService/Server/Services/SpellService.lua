@@ -64,7 +64,7 @@ local function spawnProjectile(origin: Vector3, direction: Vector3, resolved: Sp
 				end
 			else
 				local result = DestructionService:Damage(hit, resolved.DamagePerProjectile)
-				if result and result.Broke then
+				if result and result.Broke and hit:GetAttribute("OwnerId") ~= caster.UserId then
 					WantedService:ReportPropertyDamage(caster, result.StructureDestroyed)
 				end
 			end
