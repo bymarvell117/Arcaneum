@@ -19,18 +19,20 @@ local SLOT_GAP = 8
 
 local player = Players.LocalPlayer
 local castSpellEvent = Net.GetEvent("CastSpell")
+local characterClassAssignedEvent = Net.GetEvent("CharacterClassAssigned")
 
 local SpellController = {}
 
 local selectedSlot = 1
 local slotStrokes: { [number]: UIStroke } = {}
+local isWitchSlayer = false
 
 local function getMouseHitPosition(): Vector3?
 	local mouse = player:GetMouse()
 	return mouse and mouse.Hit and mouse.Hit.Position
 end
 
-local function buildHotbar()
+local function buildHotbar(): ScreenGui
 	local screenGui = Instance.new("ScreenGui")
 	screenGui.Name = "SpellHotbarGui"
 	screenGui.ResetOnSpawn = false
@@ -85,6 +87,8 @@ local function buildHotbar()
 		nameLabel.Text = word.DisplayName
 		nameLabel.Parent = slot
 	end
+
+	return screenGui
 end
 
 local function refreshHotbarSelection()
@@ -128,6 +132,10 @@ local function playCastFeedback(wordId: string)
 end
 
 local function castSelectedSpell()
+	if isWitchSlayer then
+		return
+	end
+
 	local wordId = SLOT_WORDS[selectedSlot]
 	if not wordId then
 		return
@@ -145,8 +153,13 @@ local function castSelectedSpell()
 end
 
 function SpellController:Start()
-	buildHotbar()
+	local hotbarGui = buildHotbar()
 	refreshHotbarSelection()
+
+	characterClassAssignedEvent.OnClientEvent:Connect(function(classId: string?)
+		isWitchSlayer = classId == "WitchSlayer"
+		hotbarGui.Enabled = not isWitchSlayer
+	end)
 
 	UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		if gameProcessed then

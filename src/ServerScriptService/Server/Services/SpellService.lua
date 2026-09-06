@@ -98,6 +98,11 @@ local function handleCastSpell(player: Player, loadoutRaw: unknown)
 		return
 	end
 
+	local playerData = PlayerDataService:GetData(player)
+	if not playerData or playerData.CharacterClass == "WitchSlayer" then
+		return
+	end
+
 	local resolved = SpellBuilder.Resolve(loadout :: SpellBuilder.SpellLoadout)
 	if not resolved then
 		return

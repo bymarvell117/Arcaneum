@@ -354,3 +354,53 @@ saved to the DataStore either, so it resets on server restart just like quest pr
    *don't* increase while you're breaking your own house.
 3. Have it fully collapse, then wait ~30 seconds — a fresh copy should rebuild itself at the
    same spot.
+
+## Character creation & classes (Phase 6)
+
+Every character now spawns on a **plain default R15 body** instead of the player's own Roblox
+avatar (`Server/Services/CharacterAppearanceService.lua`, via
+`Humanoid:ApplyDescription(HumanoidDescription.new(), Enum.HumanoidRigType.R15)`) — a clean,
+consistent base to build custom character art and the armor/clothing layer system on top of
+later, regardless of what any given player happens to have equipped on their account.
+
+On first join, a character is frozen (`WalkSpeed`/`JumpPower` set to 0) and a **Choose Your
+Path** screen appears (`Server/Services/CharacterCreationService.lua` +
+`Client/Controllers/CharacterCreationController.lua`), listing 4 classes from
+`Shared/Character/CharacterClasses.lua`:
+
+- **Fire / Ice / Storm Mage** — flavor and identity for now (stored, shown in the picker).
+  They don't yet restrict which spell words you can cast — that's intentionally left for the
+  spell-customization phase next, where "your magic type" will actually matter for what you can
+  build.
+- **Witch Slayer** — the one distinction enforced today: **no spellcasting at all**. Picking it
+  hides the spell hotbar and mana bar client-side, and `SpellService` independently rejects
+  `CastSpell` server-side regardless of what the client does. The promised stamina boost,
+  bonus damage vs. mages, faster weapon XP, and the one-handed crossbow are not built yet —
+  those need the weapon/combat systems this phase doesn't touch.
+
+Your choice is saved permanently (`PlayerData.CharacterClass`, part of the same DataStore
+profile as currency/XP) — you only see the picker once. Picking a class immediately unfreezes
+your character.
+
+### A known race, and how it's handled
+
+`PlayerDataService` loads each player's profile asynchronously (a DataStore call) via its own
+`Players.PlayerAdded` connection, completely independent from `CharacterCreationService`'s own
+`PlayerAdded`/`CharacterAdded` connections. Since Roblox doesn't guarantee which of two
+unrelated Loader-spawned connections runs first, `CharacterCreationService` can't just check
+`PlayerDataService:GetData(player)` once and trust it — the profile might not be loaded yet.
+It handles this by freezing the character immediately and unfreezing only once
+`PlayerDataService:GetData(player)` starts returning non-nil, err on the side of an extra
+half-second frozen rather than briefly showing the picker to a returning player who already
+has a class.
+
+### Trying it out
+
+1. Join and confirm you spawn frozen with the **Choose Your Path** screen up, showing a plain
+   gray R15 body underneath.
+2. Pick a Mage class — you should unfreeze immediately and still be able to cast spells (1/2/3
+   + click) exactly as before.
+3. Open the admin panel (**F6**) and click **"Reset Class (re-pick path)"** — you'll freeze
+   again and the picker reappears. Pick **Witch Slayer** this time — confirm the spell hotbar
+   and mana bar don't appear, and pressing 1/2/3 + click does nothing (try the debug **P** key
+   too — that still works, since it's a separate damage-dealing tool, not magic).

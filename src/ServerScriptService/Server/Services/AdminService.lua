@@ -7,6 +7,7 @@ local Net = require(ReplicatedStorage.Shared.Framework.Net)
 local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
 local StatFormulas = require(ReplicatedStorage.Shared.Combat.StatFormulas)
 local PlayerDataService = require(ServerScriptService.Server.Services.PlayerDataService)
+local CharacterCreationService = require(ServerScriptService.Server.Services.CharacterCreationService)
 
 local AdminService = {}
 
@@ -42,6 +43,8 @@ local function handleAdminCommand(player: Player, payload: unknown)
 		PlayerDataService:SetXP(player, "Character", StatFormulas.XPForLevel(value))
 	elseif action == "RefillMana" then
 		PlayerDataService:RefillMana(player)
+	elseif action == "ResetClass" then
+		CharacterCreationService:ResetClass(player)
 	end
 end
 

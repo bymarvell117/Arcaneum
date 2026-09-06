@@ -5,10 +5,11 @@ local Net = require(ReplicatedStorage.Shared.Framework.Net)
 
 local player = Players.LocalPlayer
 local manaUpdated = Net.GetEvent("ManaUpdated")
+local characterClassAssignedEvent = Net.GetEvent("CharacterClassAssigned")
 
 local ManaBarController = {}
 
-local function buildUI(): (Frame, TextLabel)
+local function buildUI(): (ScreenGui, Frame, TextLabel)
 	local screenGui = Instance.new("ScreenGui")
 	screenGui.Name = "ManaBarGui"
 	screenGui.ResetOnSpawn = false
@@ -38,16 +39,20 @@ local function buildUI(): (Frame, TextLabel)
 	label.Text = ""
 	label.Parent = background
 
-	return fill, label
+	return screenGui, fill, label
 end
 
 function ManaBarController:Start()
-	local fill, label = buildUI()
+	local screenGui, fill, label = buildUI()
 
 	manaUpdated.OnClientEvent:Connect(function(currentMana: number, maxMana: number)
 		local ratio = maxMana > 0 and math.clamp(currentMana / maxMana, 0, 1) or 0
 		fill.Size = UDim2.fromScale(ratio, 1)
 		label.Text = ("%d / %d"):format(math.floor(currentMana), math.floor(maxMana))
+	end)
+
+	characterClassAssignedEvent.OnClientEvent:Connect(function(classId: string?)
+		screenGui.Enabled = classId ~= "WitchSlayer"
 	end)
 end
 

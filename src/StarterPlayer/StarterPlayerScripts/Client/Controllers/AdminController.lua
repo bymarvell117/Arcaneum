@@ -69,7 +69,7 @@ local function buildPanel(): ScreenGui
 	screenGui.Parent = player:WaitForChild("PlayerGui")
 
 	local panel = Instance.new("Frame")
-	panel.Size = UDim2.fromOffset(320, 260)
+	panel.Size = UDim2.fromOffset(320, 300)
 	panel.Position = UDim2.new(0, 20, 0, 20)
 	panel.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
 	panel.BackgroundTransparency = 0.1
@@ -129,6 +129,20 @@ local function buildPanel(): ScreenGui
 
 	refillButton.MouseButton1Click:Connect(function()
 		sendCommand("RefillMana")
+	end)
+
+	local resetClassButton = Instance.new("TextButton")
+	resetClassButton.Size = UDim2.new(1, 0, 0, 32)
+	resetClassButton.BackgroundColor3 = Color3.fromRGB(150, 90, 90)
+	resetClassButton.TextColor3 = Color3.new(1, 1, 1)
+	resetClassButton.Font = Enum.Font.GothamBold
+	resetClassButton.TextSize = 14
+	resetClassButton.Text = "Reset Class (re-pick path)"
+	resetClassButton.LayoutOrder = 7
+	resetClassButton.Parent = panel
+
+	resetClassButton.MouseButton1Click:Connect(function()
+		sendCommand("ResetClass")
 	end)
 
 	return screenGui

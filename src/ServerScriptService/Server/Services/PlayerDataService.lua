@@ -16,6 +16,7 @@ export type PlayerData = {
 	CombatXP: number,
 	CharacterXP: number,
 	Mana: number,
+	CharacterClass: string?,
 }
 
 local PlayerDataService = {}
@@ -34,6 +35,7 @@ local function defaultData(): PlayerData
 		CombatXP = 0,
 		CharacterXP = 0,
 		Mana = StatFormulas.MaxManaForLevel(1),
+		CharacterClass = nil,
 	}
 end
 
@@ -178,6 +180,22 @@ function PlayerDataService:SetCurrency(player: Player, currency: "Silver" | "Gol
 	end
 	data[currency] = amount
 	currencyUpdated:FireClient(player, data.Silver, data.Gold)
+end
+
+function PlayerDataService:SetCharacterClass(player: Player, classId: string)
+	local data = profiles[player]
+	if not data then
+		return
+	end
+	data.CharacterClass = classId
+end
+
+function PlayerDataService:ClearCharacterClass(player: Player)
+	local data = profiles[player]
+	if not data then
+		return
+	end
+	data.CharacterClass = nil
 end
 
 function PlayerDataService:RefillMana(player: Player)
