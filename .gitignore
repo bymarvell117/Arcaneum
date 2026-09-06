@@ -1,0 +1,7 @@
+# Roblox place files (binary, shouldn't be committed — the source of truth is src/)
+*.rbxl
+*.rbxlx
+
+# Rojo / editor artifacts
+.vscode/
+*.log
