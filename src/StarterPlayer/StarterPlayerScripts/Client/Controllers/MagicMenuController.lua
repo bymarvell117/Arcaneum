@@ -359,7 +359,7 @@ local function buildNumberRow(
 		row,
 		UDim2.fromOffset(160, 32),
 		UDim2.new(0.35, 96, 0.5, -16),
-		("% (%d-%d)"):format(minPercent, maxPercent),
+		("%% (%d-%d)"):format(minPercent, maxPercent),
 		13
 	)
 	suffixLabel.TextColor3 = Color3.fromRGB(170, 170, 170)
